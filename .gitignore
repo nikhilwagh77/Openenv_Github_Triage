@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+*.log
+validate_output.txt
+validation_source.py
+validator_code.py
+debug_rest.py
+test_local_grading.py
+test_async.py
+openenv_mygithubtriage.egg-info/
