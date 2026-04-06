@@ -1,0 +1,180 @@
+import os
+import asyncio
+import json
+from typing import List, Optional, Dict, Any
+from openai import OpenAI
+
+from mygithubtriage.models import MygithubtriageAction
+from mygithubtriage.client import MygithubtriageEnv
+
+# Environment configuration
+API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
+API_KEY = os.environ.get("OPENAI_API_KEY", os.environ.get("HF_TOKEN", ""))
+MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4o-mini")
+
+
+IMAGE_NAME = "mygithubtriage-env:latest"
+TASK_NAME = "GitHub Issue Triage"
+BENCHMARK = "Mygithubtriage Environment"
+
+MAX_STEPS = 5
+MAX_TOTAL_REWARD = 1.0
+SUCCESS_SCORE_THRESHOLD = 0.8
+TEMPERATURE = 0.0
+MAX_TOKENS = 512
+
+def log_start(task: str, env: str, model: str) -> None:
+    print(f"[START] Task: {task} | Env: {env} | Model: {model}", flush=True)
+
+def log_step(step: int, action: Any, reward: float, done: bool, error: Optional[str] = None) -> None:
+    print(f"[STEP] Step: {step} | Action: {action} | Reward: {reward:.2f} | Done: {done} | Error: {error}", flush=True)
+
+def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
+    print(f"[END] Success: {success} | Total Steps: {steps} | Final Score: {score:.2f} | Rewards: {rewards}", flush=True)
+
+def get_model_action(client: OpenAI, obs_dict: dict, history: List[str]) -> MygithubtriageAction:
+    """Uses LLM to decide on an action based on observation."""
+    system_prompt = (
+        "You are an AI assistant tasked with triaging GitHub issues. "
+        "Review the issue title and body. Based on the rules, decide which labels to apply "
+        "and who to assign the issue to. You may also leave a comment if more information "
+        "is needed from the user. When making a decision, you must output a valid JSON object "
+        "that matches this schema exactly:\n"
+        "{\n"
+        '  "apply_labels": ["label1", "label2"],\n'
+        '  "remove_labels": [],\n'
+        '  "assign_to": ["team1"],\n'
+        '  "leave_comment": "comment text or null",\n'
+        '  "submit_decision": true_if_done_or_false_otherwise\n'
+        "}\n\n"
+        "Your goal is to eventually set submit_decision to true to submit the triage."
+    )
+    
+    user_prompt = f"Current Issue Observation:\n{json.dumps(obs_dict, indent=2)}\n\nHistory:\n"
+    for h in history[-3:]:
+        user_prompt += f"- {h}\n"
+    user_prompt += "\nPlease output the JSON object with your action."
+
+    try:
+        completion = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=TEMPERATURE,
+            max_tokens=MAX_TOKENS,
+            response_format={"type": "json_object"}
+        )
+        text = (completion.choices[0].message.content or "").strip()
+        data = json.loads(text)
+        return MygithubtriageAction(**data)
+    except Exception as exc:
+        print(f"[DEBUG] Model request failed: {exc}", flush=True)
+        # Empty fallback action
+        return MygithubtriageAction()
+
+async def run_episode(client: OpenAI, env: MygithubtriageEnv) -> tuple[bool, int, float, List[float]]:
+    history: List[str] = []
+    rewards: List[float] = []
+    steps_taken = 0
+    score = 0.0
+    success = False
+
+    try:
+        result = await env.reset()
+        obs = result.observation
+        
+        for step in range(1, MAX_STEPS + 1):
+            if result.done:
+                break
+
+            # Convert Observation to dict to send to LLM
+            obs_dict = {
+                "title": obs.title,
+                "body": obs.body,
+                "author": obs.author,
+                "current_labels": obs.current_labels,
+                "current_assignees": obs.current_assignees,
+                "comments": obs.comments,
+                "available_labels": obs.available_labels,
+                "available_assignees": obs.available_assignees,
+                "feedback": obs.feedback,
+            }
+
+            action = get_model_action(client, obs_dict, history)
+            action_repr = action.model_dump_json()
+
+            result = await env.step(action)
+            obs = result.observation
+            reward = result.reward or 0.0
+            done = result.done
+            
+            rewards.append(reward)
+            steps_taken = step
+
+            log_step(step=step, action=action_repr, reward=reward, done=done)
+
+            history_str = f"Step {step}: {action_repr} -> reward {reward:+.2f}"
+            history.append(history_str)
+
+            if done:
+                break
+
+        # The final reward returned on `done` step is the score in our environment.
+        if rewards:
+            score = rewards[-1]
+        score = min(max(score, 0.0), 1.0)
+        success = score >= SUCCESS_SCORE_THRESHOLD
+        
+    except Exception as e:
+        print(f"[DEBUG] Episode error: {e}", flush=True)
+
+    return success, steps_taken, score, rewards
+
+async def run_full_evaluation(api_key: Optional[str] = None, base_url: str = API_BASE_URL, model: str = MODEL_NAME) -> Dict[str, Any]:
+    """Runs a full 3-task evaluation and returns the results as a dictionary."""
+    # Ensure we pick up the latest API key from environment variables (HF Secrets)
+    actual_api_key = api_key or os.environ.get("OPENAI_API_KEY") or os.environ.get("HF_TOKEN")
+    
+    client = OpenAI(base_url=base_url, api_key=actual_api_key)
+    # Use the dynamic PORT provided by Hugging Face (default to 7860)
+    port = os.environ.get("PORT", "7860")
+    env = MygithubtriageEnv(base_url=f"http://127.0.0.1:{port}")
+    
+    episodes_results = []
+    total_score = 0.0
+    num_episodes = 3
+    
+    output_logs = []
+    def log(msg):
+        output_logs.append(msg)
+        print(msg, flush=True)
+
+    log(f"[START] Task: {TASK_NAME} | Env: {BENCHMARK} | Model: {model}")
+
+    try:
+        for ep in range(num_episodes):
+            log(f"--- Episode {ep+1} ---")
+            success, steps, score, rewards = await run_episode(client, env)
+            total_score += score
+            episodes_results.append({
+                "episode": ep + 1,
+                "score": score,
+                "steps": steps,
+                "success": success
+            })
+            
+        avg_score = total_score / num_episodes
+        log(f"[END] Success: {avg_score >= SUCCESS_SCORE_THRESHOLD} | Final Score: {avg_score:.2f}")
+        
+        return {
+            "average_score": avg_score,
+            "episodes": episodes_results,
+            "logs": "\n".join(output_logs)
+        }
+    finally:
+        await env.close()
+
+if __name__ == "__main__":
+    asyncio.run(run_full_evaluation())
