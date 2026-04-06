@@ -1,10 +1,6 @@
 ---
 title: GitHub Issue Triage Environment
-emoji: ⌨️
-colorFrom: indigo
-colorTo: red
 sdk: docker
-pinned: false
 tags:
   - openenv
 ---
