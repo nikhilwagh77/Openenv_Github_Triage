@@ -212,6 +212,8 @@ class MygithubtriageEnvironment(Environment):
                 
         if total_components > 0:
             score = (earned_components / total_components) - penalty
+        else:
+            score = 1.0 - penalty
             
         return max(0.0, min(1.0, score))
 
