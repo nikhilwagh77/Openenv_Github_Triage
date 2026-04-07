@@ -12,8 +12,8 @@ except ImportError:
     from client import MygithubtriageEnv
 
 # Environment configuration for final submission
-API_BASE_URL = os.getenv("API_BASE_URL") or "https://router.huggingface.co/v1"
-MODEL_NAME = os.getenv("MODEL_NAME") or "Qwen/Qwen2.5-72B-Instruct"
+API_BASE_URL = os.getenv("API_BASE_URL") or "https://api.openai.com/v1"
+MODEL_NAME = os.getenv("MODEL_NAME") or "gpt-4o-mini"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or os.getenv("HF_TOKEN")
 PORT = os.getenv("PORT", "7860")
 
@@ -196,6 +196,14 @@ async def run_full_evaluation_stream(api_key: Optional[str] = None, base_url: st
 
     try:
         actual_api_key = api_key or OPENAI_API_KEY
+        
+        # Immediate logging to resolve 'nothing in logs' issue
+        yield format_event("log", f"[SYSTEM] Initializing Evaluation...")
+        yield format_event("log", f"[SYSTEM] Connecting to LLM at {base_url}...")
+        
+        if not actual_api_key:
+             yield format_event("log", "[SYSTEM] Warning: No API Key found (OPENAI_API_KEY / HF_TOKEN).")
+        
         client = OpenAI(base_url=base_url, api_key=actual_api_key)
         env = MygithubtriageEnv(base_url=f"http://127.0.0.1:{PORT}")
         yield format_event("log", f"[START] task={TASK_NAME} env={BENCHMARK} model={model}")
