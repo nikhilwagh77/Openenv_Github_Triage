@@ -76,9 +76,8 @@ def get_model_action(client: OpenAI, obs_dict: dict, history: List[str]) -> Mygi
         data = json.loads(text)
         return MygithubtriageAction(**data)
     except Exception as exc:
-        print(f"[DEBUG] Model request failed: {exc}", flush=True)
-        # Empty fallback action
-        return MygithubtriageAction()
+        # Re-raise to let the caller handle reporting the error to the UI
+        raise exc
 
 async def run_episode(client: OpenAI, env: MygithubtriageEnv) -> tuple[bool, int, float, List[float]]:
     history: List[str] = []
@@ -252,8 +251,13 @@ async def run_full_evaluation_stream(api_key: Optional[str] = None, base_url: st
                 success = score >= SUCCESS_SCORE_THRESHOLD
                 
             except Exception as e:
-                yield format_event("error", f"Episode error: {e}")
+                error_msg = str(e)
+                if "401" in error_msg or "api_key" in error_msg.lower():
+                    yield format_event("error", "AUTHENTICATION ERROR: Your OpenAI API Key is invalid or missing.")
+                else:
+                    yield format_event("error", f"API Error: {error_msg}")
                 success = False
+                break # Stop evaluation on API error
             
             total_score += score
             ep_res = {"episode": ep + 1, "score": score, "steps": steps_taken, "success": success}
