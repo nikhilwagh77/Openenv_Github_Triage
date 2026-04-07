@@ -12,15 +12,15 @@ except ImportError:
     from client import MygithubtriageEnv
 
 # Environment configuration matching OpenEnv Submission Checklist
-API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
-MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
-HF_TOKEN = os.getenv("HF_TOKEN")
+API_BASE_URL = os.getenv("API_BASE_URL") or "https://router.huggingface.co/v1"
+MODEL_NAME = os.getenv("MODEL_NAME") or "Qwen/Qwen2.5-72B-Instruct"
+HF_TOKEN = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
 PORT = os.getenv("PORT", "7860")
 
 
-IMAGE_NAME = "mygithubtriage-env:latest"
-TASK_NAME = "GitHub Issue Triage"
-BENCHMARK = "Mygithubtriage Environment"
+IMAGE_NAME = os.getenv("IMAGE_NAME")
+TASK_NAME = os.getenv("TASK_NAME", "GitHub Issue Triage")
+BENCHMARK = os.getenv("BENCHMARK_NAME", "Mygithubtriage Environment")
 
 MAX_STEPS = 5
 MAX_TOTAL_REWARD = 1.0
@@ -29,13 +29,17 @@ TEMPERATURE = 0.0
 MAX_TOKENS = 512
 
 def log_start(task: str, env: str, model: str) -> None:
-    print(f"[START] Task: {task} | Env: {env} | Model: {model}", flush=True)
+    print(f"[START] task={task} env={env} model={model}", flush=True)
 
 def log_step(step: int, action: Any, reward: float, done: bool, error: Optional[str] = None) -> None:
-    print(f"[STEP] Step: {step} | Action: {action} | Reward: {reward:.2f} | Done: {done} | Error: {error}", flush=True)
+    error_val = error if error else "null"
+    done_val = str(done).lower()
+    print(f"[STEP] step={step} action={action} reward={reward:.2f} done={done_val} error={error_val}", flush=True)
 
 def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
-    print(f"[END] Success: {success} | Total Steps: {steps} | Final Score: {score:.2f} | Rewards: {rewards}", flush=True)
+    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    success_val = str(success).lower()
+    print(f"[END] success={success_val} steps={steps} score={score:.3f} rewards={rewards_str}", flush=True)
 
 def get_model_action(client: OpenAI, obs_dict: dict, history: List[str]) -> MygithubtriageAction:
     """Uses LLM to decide on an action based on observation."""
@@ -270,9 +274,11 @@ async def run_full_evaluation_stream(api_key: Optional[str] = None, base_url: st
         
         # Calculate totals for end log
         total_steps = sum(e["steps"] for e in episodes_results)
-        all_rewards = []
-        # We'd need to track rewards across episodes to match exactly, but let's at least match the string format
-        final_log = f"[END] Success: {avg_score >= SUCCESS_SCORE_THRESHOLD} | Total Steps: {total_steps} | Final Score: {avg_score:.2f} | Rewards: {[]}"
+        all_rewards = [] # In streaming mode, we don't track all rewards but we'll return the format
+        rewards_str = ",".join(f"{r:.2f}" for r in all_rewards)
+        success_val = str(avg_score >= SUCCESS_SCORE_THRESHOLD).lower()
+        
+        final_log = f"[END] success={success_val} steps={total_steps} score={avg_score:.3f} rewards={rewards_str}"
         yield format_event("log", final_log)
 
         yield format_event("done", {
