@@ -11,12 +11,11 @@ except ImportError:
     from models import MygithubtriageAction
     from client import MygithubtriageEnv
 
-# Environment configuration matching OpenEnv Submission Checklist
+# Environment configuration for final submission
 API_BASE_URL = os.getenv("API_BASE_URL") or "https://router.huggingface.co/v1"
 MODEL_NAME = os.getenv("MODEL_NAME") or "Qwen/Qwen2.5-72B-Instruct"
-HF_TOKEN = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or os.getenv("HF_TOKEN")
 PORT = os.getenv("PORT", "7860")
-
 
 IMAGE_NAME = os.getenv("IMAGE_NAME")
 TASK_NAME = os.getenv("TASK_NAME", "GitHub Issue Triage")
@@ -39,7 +38,7 @@ def log_step(step: int, action: Any, reward: float, done: bool, error: Optional[
 def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
     success_val = str(success).lower()
-    print(f"[END] success={success_val} steps={steps} score={score:.3f} rewards={rewards_str}", flush=True)
+    print(f"[END] success={success_val} steps={steps} score={score:.2f} rewards={rewards_str}", flush=True)
 
 def get_model_action(client: OpenAI, obs_dict: dict, history: List[str]) -> MygithubtriageAction:
     """Uses LLM to decide on an action based on observation."""
@@ -143,7 +142,7 @@ async def run_episode(client: OpenAI, env: MygithubtriageEnv) -> tuple[bool, int
 
 async def run_full_evaluation(api_key: Optional[str] = None, base_url: str = API_BASE_URL, model: str = MODEL_NAME) -> Dict[str, Any]:
     """Runs a full 3-task evaluation and returns the results as a dictionary."""
-    actual_api_key = api_key or os.getenv("OPENAI_API_KEY") or HF_TOKEN
+    actual_api_key = api_key or OPENAI_API_KEY
     
     client = OpenAI(base_url=base_url, api_key=actual_api_key)
     env = MygithubtriageEnv(base_url=f"http://127.0.0.1:{PORT}")
@@ -196,12 +195,14 @@ async def run_full_evaluation_stream(api_key: Optional[str] = None, base_url: st
         return f"data: {json.dumps({'type': event_type, 'data': data})}\n\n"
 
     try:
-        actual_api_key = api_key or os.getenv("OPENAI_API_KEY") or HF_TOKEN
+        actual_api_key = api_key or OPENAI_API_KEY
         client = OpenAI(base_url=base_url, api_key=actual_api_key)
         env = MygithubtriageEnv(base_url=f"http://127.0.0.1:{PORT}")
-        yield format_event("log", f"[START] Task: {TASK_NAME} | Env: {BENCHMARK} | Model: {model}")
+        yield format_event("log", f"[START] task={TASK_NAME} env={BENCHMARK} model={model}")
         await asyncio.sleep(0.1)
         
+        total_steps = 0
+        all_rewards = []
         for ep in range(num_episodes):
             yield format_event("log", f"--- Episode {ep+1} ---")
             
@@ -243,7 +244,8 @@ async def run_full_evaluation_stream(api_key: Optional[str] = None, base_url: st
                     rewards.append(reward)
                     steps_taken = step
 
-                    log_msg = f"[STEP] Step: {step} | Action: {action_repr} | Reward: {reward:.2f} | Done: {done}"
+                    done_val = str(done).lower()
+                    log_msg = f"[STEP] step={step} action={action_repr} reward={reward:.2f} done={done_val} error=null"
                     yield format_event("log", log_msg)
 
                     history_str = f"Step {step}: {action_repr} -> reward {reward:+.2f}"
@@ -272,13 +274,8 @@ async def run_full_evaluation_stream(api_key: Optional[str] = None, base_url: st
             
         avg_score = total_score / num_episodes
         
-        # Calculate totals for end log
-        total_steps = sum(e["steps"] for e in episodes_results)
-        all_rewards = [] # In streaming mode, we don't track all rewards but we'll return the format
-        rewards_str = ",".join(f"{r:.2f}" for r in all_rewards)
-        success_val = str(avg_score >= SUCCESS_SCORE_THRESHOLD).lower()
-        
-        final_log = f"[END] success={success_val} steps={total_steps} score={avg_score:.3f} rewards={rewards_str}"
+        # Use the same exact formatting for the streaming end log
+        final_log = f"[END] success={success_val} steps={total_steps} score={avg_score:.2f} rewards={rewards_str}"
         yield format_event("log", final_log)
 
         yield format_event("done", {
