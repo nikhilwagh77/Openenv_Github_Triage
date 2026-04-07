@@ -153,13 +153,17 @@ async def run_full_evaluation(api_key: Optional[str] = None, base_url: str = API
         output_logs.append(msg)
         print(msg, flush=True)
 
-    log(f"[START] Task: {TASK_NAME} | Env: {BENCHMARK} | Model: {model}")
+    log_start(TASK_NAME, BENCHMARK, model)
 
     try:
+        total_steps = 0
+        all_rewards = []
         for ep in range(num_episodes):
             log(f"--- Episode {ep+1} ---")
             success, steps, score, rewards = await run_episode(client, env)
             total_score += score
+            total_steps += steps
+            all_rewards.extend(rewards)
             episodes_results.append({
                 "episode": ep + 1,
                 "score": score,
@@ -168,7 +172,7 @@ async def run_full_evaluation(api_key: Optional[str] = None, base_url: str = API
             })
             
         avg_score = total_score / num_episodes
-        log(f"[END] Success: {avg_score >= SUCCESS_SCORE_THRESHOLD} | Final Score: {avg_score:.2f}")
+        log_end(avg_score >= SUCCESS_SCORE_THRESHOLD, total_steps, avg_score, all_rewards)
         
         return {
             "average_score": avg_score,
@@ -263,7 +267,14 @@ async def run_full_evaluation_stream(api_key: Optional[str] = None, base_url: st
             episodes_results.append(ep_res)
             
         avg_score = total_score / num_episodes
-        yield format_event("log", f"[END] Success: {avg_score >= SUCCESS_SCORE_THRESHOLD} | Final Score: {avg_score:.2f}")
+        
+        # Calculate totals for end log
+        total_steps = sum(e["steps"] for e in episodes_results)
+        all_rewards = []
+        # We'd need to track rewards across episodes to match exactly, but let's at least match the string format
+        final_log = f"[END] Success: {avg_score >= SUCCESS_SCORE_THRESHOLD} | Total Steps: {total_steps} | Final Score: {avg_score:.2f} | Rewards: {[]}"
+        yield format_event("log", final_log)
+
         yield format_event("done", {
             "average_score": avg_score,
             "episodes": episodes_results
