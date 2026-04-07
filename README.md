@@ -2,7 +2,7 @@
 title: GitHub Issue Triage Environment
 emoji: 🛡️
 colorFrom: gray
-colorTo: slate
+colorTo: blue
 sdk: docker
 tags:
   - openenv
