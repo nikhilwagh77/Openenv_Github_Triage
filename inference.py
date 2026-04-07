@@ -4,13 +4,18 @@ import json
 from typing import List, Optional, Dict, Any
 from openai import OpenAI
 
-from mygithubtriage.models import MygithubtriageAction
-from mygithubtriage.client import MygithubtriageEnv
+try:
+    from mygithubtriage.models import MygithubtriageAction
+    from mygithubtriage.client import MygithubtriageEnv
+except ImportError:
+    from models import MygithubtriageAction
+    from client import MygithubtriageEnv
 
 # Environment configuration
 API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
 API_KEY = os.environ.get("OPENAI_API_KEY", os.environ.get("HF_TOKEN", ""))
 MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4o-mini")
+PORT = os.environ.get("PORT", "7860")
 
 
 IMAGE_NAME = "mygithubtriage-env:latest"
@@ -39,14 +44,15 @@ def get_model_action(client: OpenAI, obs_dict: dict, history: List[str]) -> Mygi
         "Review the issue title and body. Based on the rules, decide which labels to apply "
         "and who to assign the issue to. You may also leave a comment if more information "
         "is needed from the user. When making a decision, you must output a valid JSON object "
-        "that matches this schema exactly:\n"
+        "matches this schema exactly:\n"
         "{\n"
-        '  "apply_labels": ["label1", "label2"],\n'
+        '  "apply_labels": ["<label>"],\n'
         '  "remove_labels": [],\n'
-        '  "assign_to": ["team1"],\n'
+        '  "assign_to": ["<team_name>"],\n'
         '  "leave_comment": "comment text or null",\n'
         '  "submit_decision": true_if_done_or_false_otherwise\n'
         "}\n\n"
+        "Crucially, only assign teams from 'available_assignees', and only labels from 'available_labels'.\n"
         "Your goal is to eventually set submit_decision to true to submit the triage."
     )
     
@@ -138,9 +144,7 @@ async def run_full_evaluation(api_key: Optional[str] = None, base_url: str = API
     actual_api_key = api_key or os.environ.get("OPENAI_API_KEY") or os.environ.get("HF_TOKEN")
     
     client = OpenAI(base_url=base_url, api_key=actual_api_key)
-    # Use the dynamic PORT provided by Hugging Face (default to 7860)
-    port = os.environ.get("PORT", "7860")
-    env = MygithubtriageEnv(base_url=f"http://127.0.0.1:{port}")
+    env = MygithubtriageEnv(base_url=f"http://127.0.0.1:{PORT}")
     
     episodes_results = []
     total_score = 0.0
@@ -175,6 +179,100 @@ async def run_full_evaluation(api_key: Optional[str] = None, base_url: str = API
         }
     finally:
         await env.close()
+
+async def run_full_evaluation_stream(api_key: Optional[str] = None, base_url: str = API_BASE_URL, model: str = MODEL_NAME):
+    """Runs a full 3-task evaluation and yields results as Server-Sent Events (SSE)."""
+    episodes_results = []
+    total_score = 0.0
+    num_episodes = 3
+    
+    def format_event(event_type: str, data: Any) -> str:
+        return f"data: {json.dumps({'type': event_type, 'data': data})}\n\n"
+
+    try:
+        actual_api_key = api_key or os.environ.get("OPENAI_API_KEY") or os.environ.get("HF_TOKEN")
+        client = OpenAI(base_url=base_url, api_key=actual_api_key)
+        env = MygithubtriageEnv(base_url=f"http://127.0.0.1:{PORT}")
+        yield format_event("log", f"[START] Task: {TASK_NAME} | Env: {BENCHMARK} | Model: {model}")
+        await asyncio.sleep(0.1)
+        
+        for ep in range(num_episodes):
+            yield format_event("log", f"--- Episode {ep+1} ---")
+            
+            # Inline the episode loop so we can stream steps
+            history: List[str] = []
+            rewards: List[float] = []
+            steps_taken = 0
+            score = 0.0
+            
+            try:
+                result = await env.reset()
+                obs = result.observation
+                
+                for step in range(1, MAX_STEPS + 1):
+                    if result.done:
+                        break
+
+                    obs_dict = {
+                        "title": obs.title, "body": obs.body, "author": obs.author,
+                        "current_labels": obs.current_labels, "current_assignees": obs.current_assignees,
+                        "comments": obs.comments, "available_labels": obs.available_labels,
+                        "available_assignees": obs.available_assignees, "feedback": obs.feedback,
+                    }
+
+                    if step == 1:
+                        yield format_event("log", f"[OBSERVATION] Title: '{obs.title}' | Body: '{obs.body}'")
+
+                    yield format_event("log", f"Determining triage for Step {step}...")
+                    # Since get_model_action is sync, let's run it in an executor so we don't block
+                    loop = asyncio.get_running_loop()
+                    action = await loop.run_in_executor(None, get_model_action, client, obs_dict, history)
+                    action_repr = action.model_dump_json()
+
+                    result = await env.step(action)
+                    obs = result.observation
+                    reward = result.reward or 0.0
+                    done = result.done
+                    
+                    rewards.append(reward)
+                    steps_taken = step
+
+                    log_msg = f"[STEP] Step: {step} | Action: {action_repr} | Reward: {reward:.2f} | Done: {done}"
+                    yield format_event("log", log_msg)
+
+                    history_str = f"Step {step}: {action_repr} -> reward {reward:+.2f}"
+                    history.append(history_str)
+
+                    if done:
+                        break
+
+                if rewards:
+                    score = rewards[-1]
+                score = min(max(score, 0.0), 1.0)
+                success = score >= SUCCESS_SCORE_THRESHOLD
+                
+            except Exception as e:
+                yield format_event("error", f"Episode error: {e}")
+                success = False
+            
+            total_score += score
+            ep_res = {"episode": ep + 1, "score": score, "steps": steps_taken, "success": success}
+            episodes_results.append(ep_res)
+            
+        avg_score = total_score / num_episodes
+        yield format_event("log", f"[END] Success: {avg_score >= SUCCESS_SCORE_THRESHOLD} | Final Score: {avg_score:.2f}")
+        yield format_event("done", {
+            "average_score": avg_score,
+            "episodes": episodes_results
+        })
+    except Exception as e:
+        import traceback
+        yield format_event("error", str(e) + "\\n" + traceback.format_exc())
+    finally:
+        try:
+            await env.close()
+        except:
+            pass
 
 if __name__ == "__main__":
     asyncio.run(run_full_evaluation())
