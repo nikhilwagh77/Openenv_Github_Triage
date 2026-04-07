@@ -1,82 +1,128 @@
 ---
 title: GitHub Issue Triage Environment
+emoji: 🛡️
+colorFrom: gray
+colorTo: slate
 sdk: docker
 tags:
-- openenv
-emoji: 🚀
-colorFrom: blue
-colorTo: purple
-pinned: true
+  - openenv
+app_port: 7860
+pinned: false
+license: bsd-3-clause
 ---
 
 # 🛡️ GitHub Issue Triage Environment
 
-A real-world OpenEnv simulation for evaluating LLM agents on developer triage tasks. 
+A high-fidelity **OpenEnv v1** simulation for evaluating autonomous agents on developer-centric triage and repository maintenance tasks.
 
-## 💡 Environment Description and Motivation
-**Motivation**: Maintaining large open-source repositories is a complex, multi-modal task. Most AI benchmarks test isolated coding bugs but ignore the "human" and "organizational" side of development—triaging. We built this environment to test an agent's ability to act as a **Repository Maintainer**, requiring not just technical knowledge, but decision-making and communication skills.
-
-In this environment, an agent reviews incoming issues and must decide the correct labels, the appropriate team to assign, and whether to ask the user for more information.
-
----
-
-## 🏗️ Action and Observation Spaces
-
-### **Action Space (`MygithubtriageAction`)**
-The agent interacts with the environment through the following typed actions:
-- `apply_labels` (List[str]): Add specific labels (bug, ui, performance, backend, needs-info, enhancement).
-- `remove_labels` (List[str]): Remove labels if they were incorrectly applied.
-- `assign_to` (List[str]): Route the issue to the correct team (database-team, frontend-team, backend-team).
-- `leave_comment` (str): Provide textual feedback or request more info from the author.
-- `submit_decision` (bool): Set to `True` when triage is finished to trigger the grader.
-
-### **Observation Space (`MygithubtriageObservation`)**
-The agent receives the following state updates:
-- **Issue Details**: `title`, `body`, `author`, `issue_id`.
-- **Current State**: `current_labels`, `current_assignees`, `comments`.
-- **Environment Metadata**: `available_labels`, `available_assignees`, `task_difficulty`.
-- **Immediate Feedback**: `feedback` string describing the result of the last action taken.
+[![OpenEnv](https://img.shields.io/badge/OpenEnv-v1.0-blue)](https://openenv.org)
+[![Python](https://img.shields.io/badge/Python-3.12-gray)](https://python.org)
+[![License](https://img.shields.io/badge/License-BSD--3--Clause-lightgrey)](https://opensource.org/licenses/BSD-3-Clause)
 
 ---
 
-## 🎯 Task Scenarios & Difficulty
+## 💡 Overview
 
-The environment provides a sequential 3-task suite for evaluation:
+Maintaining large-scale open-source repositories is a complex, multi-dimensional challenge. Traditional coding benchmarks often focus on isolated bugs, but ignore the **organizational intelligence** required for effective project management. 
 
-| Task ID | Scenario | Difficulty | Expected Outcome |
-| :--- | :--- | :--- | :--- |
-| **1** | Missing Login Button | **Easy** | Add labels: ["bug", "ui"] |
-| **2** | Database Timeout | **Medium** | Add labels: ["performance", "backend"], Assign: ["database-team"] |
-| **3** | Vague "It crashed" | **Hard** | Add label: ["needs-info"], Leave a comment requesting logs. |
+This environment simulates a **Repository Maintainer** persona. Agents must analyze incoming issues, determine their technical scope, apply appropriate metadata, and route them to the correct engineering teams—all while maintaining professional communication with the author.
 
 ---
 
-## 🕹️ Setup and Usage
+## 🏗️ Technical Architecture
 
-### **Local Deployment**
-1.  **Sync**: `uv sync`
-2.  **Validate**: `openenv validate`
-3.  **Run Locally**: `uv run server`
-4.  **Test**: `uv run python inference.py`
+### **1. Action Space (`MygithubtriageAction`)**
 
-### **Hugging Face Deployment**
-- Select **Docker SDK** and push this repository.
-- Ensure your `OPENAI_API_KEY` is added under **Settings -> Secrets**.
-
----
-
-## 📊 Baseline Scores (GPT-4o-mini)
-
-| Metric | Score | Note |
+| Action | Fields | Purpose |
 | :--- | :--- | :--- |
-| **Avg. Reward (0.0-1.0)** | **0.87** | Average score across all tasks when funded. |
-| **Success Rate** | **100%** | When provided with clear decision criteria. |
+| `apply_labels` | `List[str]` | Add categories like `bug`, `ui`, `performance`. |
+| `remove_labels` | `List[str]` | Correct existing or incorrect metadata. |
+| `assign_to` | `List[str]` | Route to teams like `database-team` or `frontend-team`. |
+| `leave_comment` | `str` | Request info or provide status to the author. |
+| `submit_decision` | `bool` | Seal the triage and trigger automated grading. |
 
-*(Note: If no credits are provided, the baseline score will default to 0.0 due to API quota errors.)*
+### **2. Observation Space (`MygithubtriageObservation`)**
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `title` | `str` | The headline of the reported issue. |
+| `body` | `str` | Full technical description and reproduction steps. |
+| `author` | `str` | The GitHub username of the reporter. |
+| `current_labels` | `List[str]` | Labels currently attached to the issue. |
+| `current_assignees`| `List[str]` | Teams or users currently assigned. |
+| `available_labels` | `List[str]` | Valid label vocabulary for this environment. |
+| `available_assignees`| `List[str]` | Valid team identifiers for routing. |
+| `feedback` | `str` | Response from the system about the last action taken. |
 
 ---
 
-## 🔐 OpenEnv Specification
-This environment is fully compliant with the **OpenEnv v1** specification and can be integrated into any `openenv` compatible benchmark runner.
+## 🎯 Evaluation Scenarios
 
-**Status: Ready for Submission.** 🏁🛡️✨
+The environment includes a 3-task suite for automated benchmarking:
+
+| Difficulty | Scenario Description | Core Triage Challenge |
+| :--- | :--- | :--- |
+| **Easy** | Missing login button UI bug. | Precise labeling according to maintainer policy. |
+| **Medium** | Database latency/timeout issue. | Multi-labeling + Correct team routing. |
+| **Hard** | Vague "it doesn't work" report. | Interactive triage (Needs-info/Comment). |
+
+---
+
+## 📊 Grading & Metrics
+
+The grading system implements a **Dense Reward Function** to evaluate maintenance quality.
+
+### **Reward Components**
+
+| Component | Max Reward | Success Condition |
+| :--- | :--- | :--- |
+| **Labeling** | 0.40 | All required labels are present and correct. |
+| **Routing** | 0.40 | Issue is assigned to the correct technical team. |
+| **Communication** | 0.20 | Appropriate label (e.g., `needs-info`) is used if required. |
+
+**Final Score Calculation**: `Score = (Label_Reward + Routing_Reward + Comm_Reward)`
+**Passing Bar**: A total score of **0.80** or higher is required for an episode to be "Successful."
+
+---
+
+## 🕹️ Getting Started
+
+Ensure you have [uv](https://github.com/astral-sh/uv) and [openenv](https://openenv.org) installed.
+
+### **Local Setup**
+```bash
+# Clone and sync
+git clone https://github.com/nikhilwagh77/github_triage.git
+cd github_triage
+uv sync
+
+# Validate the OpenEnv specification
+openenv validate
+```
+
+### **Run Evaluation Benchmark**
+```bash
+# Start the backend server
+uv run server
+
+# In a new terminal, run the agent stream
+uv run python inference.py
+```
+
+---
+
+## 📡 API Reference
+
+| Method | Path | Purpose |
+| :--- | :--- | :--- |
+| **POST** | `/reset` | Initialize a new task environment. |
+| **POST** | `/step` | Submit an action and receive the next observation. |
+| **GET** | `/state` | Retrieve the current raw state of the environment. |
+| **GET** | `/run-agent-stream` | Stream real-time evaluation logs (SSE). |
+
+---
+
+## 📜 License
+This project is licensed under the **BSD 3-Clause License**.
+
+**Status: Submission Ready** 🏁🛡️🌌
