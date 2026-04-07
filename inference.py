@@ -11,11 +11,11 @@ except ImportError:
     from models import MygithubtriageAction
     from client import MygithubtriageEnv
 
-# Environment configuration
-API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
-API_KEY = os.environ.get("OPENAI_API_KEY", os.environ.get("HF_TOKEN", ""))
-MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4o-mini")
-PORT = os.environ.get("PORT", "7860")
+# Environment configuration matching OpenEnv Submission Checklist
+API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
+MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
+HF_TOKEN = os.getenv("HF_TOKEN")
+PORT = os.getenv("PORT", "7860")
 
 
 IMAGE_NAME = "mygithubtriage-env:latest"
@@ -139,8 +139,7 @@ async def run_episode(client: OpenAI, env: MygithubtriageEnv) -> tuple[bool, int
 
 async def run_full_evaluation(api_key: Optional[str] = None, base_url: str = API_BASE_URL, model: str = MODEL_NAME) -> Dict[str, Any]:
     """Runs a full 3-task evaluation and returns the results as a dictionary."""
-    # Ensure we pick up the latest API key from environment variables (HF Secrets)
-    actual_api_key = api_key or os.environ.get("OPENAI_API_KEY") or os.environ.get("HF_TOKEN")
+    actual_api_key = api_key or os.getenv("OPENAI_API_KEY") or HF_TOKEN
     
     client = OpenAI(base_url=base_url, api_key=actual_api_key)
     env = MygithubtriageEnv(base_url=f"http://127.0.0.1:{PORT}")
@@ -189,7 +188,7 @@ async def run_full_evaluation_stream(api_key: Optional[str] = None, base_url: st
         return f"data: {json.dumps({'type': event_type, 'data': data})}\n\n"
 
     try:
-        actual_api_key = api_key or os.environ.get("OPENAI_API_KEY") or os.environ.get("HF_TOKEN")
+        actual_api_key = api_key or os.getenv("OPENAI_API_KEY") or HF_TOKEN
         client = OpenAI(base_url=base_url, api_key=actual_api_key)
         env = MygithubtriageEnv(base_url=f"http://127.0.0.1:{PORT}")
         yield format_event("log", f"[START] Task: {TASK_NAME} | Env: {BENCHMARK} | Model: {model}")
