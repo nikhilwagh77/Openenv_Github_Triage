@@ -159,8 +159,8 @@ class MygithubtriageEnvironment(Environment):
         self._state = State(episode_id=str(uuid4()), step_count=0)
         
         if task_id is not None:
-            # Find the task by ID
-            task = next((t for t in TASKS if t["id"] == task_id), TASKS[0])
+            # Find the task by ID (handle both int and str from validator)
+            task = next((t for t in TASKS if str(t["id"]) == str(task_id)), TASKS[0])
             self._current_task = task
         else:
             # Sequential fallback
@@ -290,7 +290,10 @@ class MygithubtriageEnvironment(Environment):
         else:
             score = 1.0 - penalty
             
-        return max(0.0, min(1.0, score))
+        # Ensure score is strictly in (0, 1) as required by Phase 2 validation.
+        # Maps [0, 1] range to [0.01, 0.99]
+        clamped_score = max(0.0, min(1.0, score))
+        return round(0.01 + (clamped_score * 0.98), 3)
 
     @property
     def state(self) -> State:
