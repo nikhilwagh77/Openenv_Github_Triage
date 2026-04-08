@@ -5,3 +5,11 @@ runtime: fastapi
 app: server.app
 port: 7860
 
+tasks:
+  - id: 1
+    description: "Easy triage: Fix a simple broken footer link."
+  - id: 2
+    description: "Medium triage: Handle a security dependency vulnerability."
+  - id: 3
+    description: "Hard triage: Investigate a critical site crash on login."
+

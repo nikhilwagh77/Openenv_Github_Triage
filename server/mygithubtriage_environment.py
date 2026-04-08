@@ -290,7 +290,10 @@ class MygithubtriageEnvironment(Environment):
         else:
             score = 1.0 - penalty
             
-        return max(0.0, min(1.0, score))
+        # Ensure score is strictly in (0, 1) as required by Phase 2 validation.
+        # Maps [0, 1] range to [0.01, 0.99]
+        clamped_score = max(0.0, min(1.0, score))
+        return round(0.01 + (clamped_score * 0.98), 3)
 
     @property
     def state(self) -> State:
