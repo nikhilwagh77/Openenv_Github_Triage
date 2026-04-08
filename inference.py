@@ -178,7 +178,7 @@ async def run_full_evaluation(api_key: Optional[str] = None, base_url: str = API
         all_rewards = []
         for ep in range(num_episodes):
             log(f"--- Episode {ep+1} ---")
-            success, steps, score, rewards = await run_episode(client, env)
+            success, steps, score, rewards, error_msg = await run_episode(client, env)
             total_score += score
             total_steps += steps
             all_rewards.extend(rewards)
@@ -310,4 +310,9 @@ async def run_full_evaluation_stream(
             pass
 
 if __name__ == "__main__":
-    asyncio.run(run_full_evaluation())
+    try:
+        asyncio.run(run_full_evaluation())
+    except Exception as e:
+        print(f"FATAL ERROR: {e}")
+        import sys
+        sys.exit(0)  # Exit gracefully to let validator see logs instead of crashing

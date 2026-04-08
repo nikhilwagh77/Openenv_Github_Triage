@@ -59,6 +59,11 @@ async def run_agent_stream(ids: Optional[str] = Query(None)):
             yield f"data: {json.dumps({'type': 'error', 'data': error_msg})}\n\n"
         return StreamingResponse(error_stream(), media_type="text/event-stream")
 
+@app.get("/health")
+async def health():
+    """Health check endpoint for Docker and validators."""
+    return {"status": "ok"}
+
 @app.get("/", include_in_schema=False)
 async def root():
     return HTMLResponse(r"""
