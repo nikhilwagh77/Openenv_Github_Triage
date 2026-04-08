@@ -14,7 +14,8 @@ except ImportError:
 # Configuration
 API_BASE_URL = os.getenv("API_BASE_URL") or "https://api.openai.com/v1"
 MODEL_NAME = os.getenv("MODEL_NAME") or "gpt-4o"
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or ""
+# Support both OpenAI and Hugging Face tokens
+API_KEY = os.getenv("OPENAI_API_KEY") or os.getenv("HF_TOKEN") or ""
 PORT = int(os.getenv("PORT") or 7860)
 
 TASK_NAME = os.getenv("MY_ENV_V4_TASK") or "github_triage"
@@ -156,7 +157,7 @@ async def run_episode(client: OpenAI, env: MygithubtriageEnv) -> tuple[bool, int
 
 async def run_full_evaluation(api_key: Optional[str] = None, base_url: str = API_BASE_URL, model: str = MODEL_NAME) -> Dict[str, Any]:
     """Runs a full 3-task evaluation and returns the results as a dictionary."""
-    actual_api_key = api_key or OPENAI_API_KEY
+    actual_api_key = api_key or API_KEY
     
     client = OpenAI(base_url=base_url, api_key=actual_api_key)
     env = MygithubtriageEnv(base_url=f"http://127.0.0.1:{PORT}")
@@ -213,7 +214,7 @@ async def run_full_evaluation_stream(
         return f"data: {json.dumps({'type': event_type, 'data': data})}\n\n"
 
     try:
-        actual_api_key = api_key or OPENAI_API_KEY
+        actual_api_key = api_key or API_KEY
         client = OpenAI(base_url=base_url, api_key=actual_api_key)
         env = MygithubtriageEnv(base_url=f"http://127.0.0.1:{PORT}")
         
