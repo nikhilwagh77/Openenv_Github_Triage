@@ -1,18 +1,9 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree.
-
-"""
-Mygithubtriage Environment Implementation.
-
-A GitHub Issue triage environment where the agent learns to
-label, assign, and communicate effectively on repo issues.
-"""
+# Copyright (c) 2026 OpenEnv Contributors.
+# Mygithubtriage Environment Implementation.
 
 from uuid import uuid4
 import random
+from typing import List, Optional
 
 from openenv.core.env_server.interfaces import Environment
 from openenv.core.env_server.types import State
@@ -23,44 +14,122 @@ except ImportError:
     from models import MygithubtriageAction, MygithubtriageObservation
 
 
+# Available labels and assignees for the triage task
 AVAILABLE_LABELS = [
-    "bug", "ui", "performance", "backend", "needs-info", "enhancement"
+    "bug", "ui", "performance", "backend", "needs-info", "enhancement", "security", "documentation"
 ]
 
 AVAILABLE_ASSIGNEES = [
-    "database-team", "frontend-team", "backend-team"
+    "database-team", "frontend-team", "backend-team", "security-team", "docs-team"
 ]
 
+# Expanded dataset of 15 tasks for comprehensive evaluation
+# Expanded dataset of 15 realistic GitHub tasks for comprehensive evaluation
 TASKS = [
     {
-        "id": 1,
-        "difficulty": "easy",
-        "title": "Login button is missing down the page",
-        "body": "I scrolled down but the login button is completely gone.",
-        "author": "randomuser99",
-        "expected_labels": ["bug", "ui"],
-        "expected_assignees": [],
-        "needs_comment": False
+        "id": 1, "difficulty": "easy",
+        "title": "Broken link in footer",
+        "body": "The link to 'Privacy Policy' in the footer returns a 404 error. Please fix.",
+        "author": "web_surfer",
+        "expected_labels": ["bug", "ui"], "expected_assignees": ["frontend-team"], "needs_comment": False
     },
     {
-        "id": 2,
-        "difficulty": "medium",
-        "title": "Database query sometimes times out on heavy load",
-        "body": "When 1000 users hit it concurrently, Postgres just gives up and times out.",
-        "author": "devops-guru",
-        "expected_labels": ["performance", "backend"],
-        "expected_assignees": ["database-team"],
-        "needs_comment": False
+        "id": 2, "difficulty": "medium",
+        "title": "Dependency vulnerability in lodash",
+        "body": "Github security scan found a high-severity vulnerability in lodash < 4.17.21. We need to upgrade.",
+        "author": "dep-bot",
+        "expected_labels": ["security", "backend"], "expected_assignees": ["backend-team", "security-team"], "needs_comment": False
     },
     {
-        "id": 3,
-        "difficulty": "hard",
-        "title": "Fix it please it crashed",
-        "body": "It crashed yesterday when I clicked it.",
-        "author": "angry_customer",
-        "expected_labels": ["needs-info"],
-        "expected_assignees": [],
-        "needs_comment": True
+        "id": 3, "difficulty": "easy",
+        "title": "Typo in installation command",
+        "body": "In README.md, it says 'npm instll' instead of 'npm install'.",
+        "author": "first_timer",
+        "expected_labels": ["documentation"], "expected_assignees": ["docs-team"], "needs_comment": False
+    },
+    {
+        "id": 4, "difficulty": "medium",
+        "title": "Add search bar to navigation",
+        "body": "Users are finding it hard to navigate. We should add a global search bar in the header.",
+        "author": "ux_researcher",
+        "expected_labels": ["enhancement", "ui"], "expected_assignees": ["frontend-team"], "needs_comment": False
+    },
+    {
+        "id": 5, "difficulty": "hard",
+        "title": "Site crashes on login attempt",
+        "body": "Everytime I click login, the screen goes white. I don't see any error messages.",
+        "author": "confused_user",
+        "expected_labels": ["bug", "needs-info"], "expected_assignees": ["frontend-team"], "needs_comment": True
+    },
+    {
+        "id": 6, "difficulty": "easy",
+        "title": "Update logo to new version",
+        "body": "The marketing team has released a new logo. We need to swap logo.png with the new asset.",
+        "author": "designer_01",
+        "expected_labels": ["ui"], "expected_assignees": ["frontend-team"], "needs_comment": False
+    },
+    {
+        "id": 7, "difficulty": "medium",
+        "title": "Slow API response on /dashboard",
+        "body": "The dashboard takes 8 seconds to load for users with more than 10 projects.",
+        "author": "power_user",
+        "expected_labels": ["performance", "backend"], "expected_assignees": ["backend-team"], "needs_comment": False
+    },
+    {
+        "id": 8, "difficulty": "hard",
+        "title": "SQL Injection in user profile",
+        "body": "I can bypass the name length check and run arbitrary SQL in the 'bio' field.",
+        "author": "pwn_master",
+        "expected_labels": ["security", "backend"], "expected_assignees": ["security-team", "backend-team"], "needs_comment": False
+    },
+    {
+        "id": 9, "difficulty": "easy",
+        "title": "Change theme to dark mode by default",
+        "body": "Most users prefer dark mode. Let's make it the default for new signups.",
+        "author": "night_mode_fan",
+        "expected_labels": ["enhancement", "ui"], "expected_assignees": ["frontend-team"], "needs_comment": False
+    },
+    {
+        "id": 10, "difficulty": "medium",
+        "title": "Broken CSS on Safari mobile",
+        "body": "The layout totally breaks on Safari on iPhone. Buttons are overlapping.",
+        "author": "apple_user",
+        "expected_labels": ["bug", "ui"], "expected_assignees": ["frontend-team"], "needs_comment": False
+    },
+    {
+        "id": 11, "difficulty": "easy",
+        "title": "Add API documentation section",
+        "body": "We need a new page explaining how to use our REST API endpoints.",
+        "author": "api_integrator",
+        "expected_labels": ["documentation", "enhancement"], "expected_assignees": ["docs-team"], "needs_comment": False
+    },
+    {
+        "id": 12, "difficulty": "medium",
+        "title": "Concurrent login issue",
+        "body": "Logging in from two devices at once sometimes deletes the session of the first device.",
+        "author": "multi_tasker",
+        "expected_labels": ["bug", "backend"], "expected_assignees": ["backend-team"], "needs_comment": False
+    },
+    {
+        "id": 13, "difficulty": "hard",
+        "title": "It's not working properly",
+        "body": "I tried to use the app and it didn't do what I expected.",
+        "author": "vague_reporter",
+        "expected_labels": ["needs-info"], "expected_assignees": [], "needs_comment": True
+    },
+    {
+        "id": 14, "difficulty": "medium",
+        "title": "Optimize image uploads",
+        "body": "Uploading a 5MB image hangs the UI for several seconds.",
+        "author": "photographer",
+        "expected_labels": ["performance", "ui"], "expected_assignees": ["frontend-team"], "needs_comment": False
+    },
+    {
+        "id": 15, "difficulty": "easy",
+        "title": "Add 'Help' link to navigation",
+        "body": "People are getting lost. A link to the support page in the header would help.",
+        "author": "support_agent",
+        "expected_labels": ["enhancement", "ui"], "expected_assignees": ["frontend-team"], "needs_comment": False
     }
 ]
 
@@ -82,16 +151,22 @@ class MygithubtriageEnvironment(Environment):
         self.current_assignees = []
         self.comments = []
 
-    def reset(self) -> MygithubtriageObservation:
+    def reset(self, task_id: int = None) -> MygithubtriageObservation:
         """
-        Reset the environment and pick the next task.
+        Reset the environment and pick a task.
+        If task_id is provided, use that specific task. Otherwise select sequentially.
         """
         self._state = State(episode_id=str(uuid4()), step_count=0)
         
-        # Sequentially select task to ensure all 3 are seen
-        task_idx = self._reset_count % len(TASKS)
-        self._current_task = TASKS[task_idx]
-        self._reset_count += 1
+        if task_id is not None:
+            # Find the task by ID
+            task = next((t for t in TASKS if t["id"] == task_id), TASKS[0])
+            self._current_task = task
+        else:
+            # Sequential fallback
+            task_idx = self._reset_count % len(TASKS)
+            self._current_task = TASKS[task_idx]
+            self._reset_count += 1
         
         self.current_labels = []
         self.current_assignees = []
@@ -205,10 +280,10 @@ class MygithubtriageEnvironment(Environment):
             if len(self.comments) > 0:
                 earned_components += 1
                 
-        # Penalties for extra incorrect labels/assignees
+        # Balanced penalty for extra incorrect labels/assignees
         extra_labels = [l for l in self.current_labels if l not in task["expected_labels"]]
         extra_assignees = [a for a in self.current_assignees if a not in task["expected_assignees"]]
-        penalty = 0.1 * (len(extra_labels) + len(extra_assignees))
+        penalty = 0.05 * (len(extra_labels) + len(extra_assignees))
                 
         if total_components > 0:
             score = (earned_components / total_components) - penalty

@@ -11,18 +11,16 @@ except ImportError:
     from models import MygithubtriageAction
     from client import MygithubtriageEnv
 
-# Environment configuration for final submission
+# Configuration
 API_BASE_URL = os.getenv("API_BASE_URL") or "https://api.openai.com/v1"
-MODEL_NAME = os.getenv("MODEL_NAME") or "gpt-4o-mini"
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or os.getenv("HF_TOKEN")
-PORT = os.getenv("PORT", "7860")
+MODEL_NAME = os.getenv("MODEL_NAME") or "gpt-4o"
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") or ""
+PORT = int(os.getenv("PORT") or 7860)
 
-IMAGE_NAME = os.getenv("IMAGE_NAME")
-TASK_NAME = os.getenv("TASK_NAME", "GitHub Issue Triage")
-BENCHMARK = os.getenv("BENCHMARK_NAME", "Mygithubtriage Environment")
+TASK_NAME = os.getenv("MY_ENV_V4_TASK") or "github_triage"
+BENCHMARK = os.getenv("MY_ENV_V4_BENCHMARK") or "mygithubtriage_benchmark"
 
 MAX_STEPS = 5
-MAX_TOTAL_REWARD = 1.0
 SUCCESS_SCORE_THRESHOLD = 0.8
 TEMPERATURE = 0.0
 MAX_TOKENS = 512
@@ -41,22 +39,36 @@ def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> No
     print(f"[END] success={success_val} steps={steps} score={score:.2f} rewards={rewards_str}", flush=True)
 
 def get_model_action(client: OpenAI, obs_dict: dict, history: List[str]) -> MygithubtriageAction:
-    """Uses LLM to decide on an action based on observation."""
+    """Uses LLM to decide on an action based on observation with improved prompt logic."""
     system_prompt = (
-        "You are an AI assistant tasked with triaging GitHub issues. "
-        "Review the issue title and body. Based on the rules, decide which labels to apply "
-        "and who to assign the issue to. You may also leave a comment if more information "
-        "is needed from the user. When making a decision, you must output a valid JSON object "
-        "matches this schema exactly:\n"
+        "You are an expert GitHub Maintainer and Triage Agent. Your goal is to accurately categorize "
+        "incoming issues to ensure they are handled by the correct team with the right priority.\n\n"
+        "Guidelines:\n"
+        "1. **Labels**:\n"
+        "   - 'bug': Use for unintended behavior or crashes.\n"
+        "   - 'ui': Use for visual, CSS, or frontend layout issues.\n"
+        "   - 'backend': Use for server-side logic, APIs, or data processing.\n"
+        "   - 'performance': Use for slowness, timeouts, or resource leaks.\n"
+        "   - 'security': Use for vulnerabilities like SQL injection or XSS.\n"
+        "   - 'enhancement': Use for new feature requests or improvements.\n"
+        "   - 'documentation': Use for README or documentation updates.\n"
+        "   - 'needs-info': Use ONLY if the issue is too vague to act upon (e.g., 'it crashed' without logs).\n\n"
+        "2. **Assignments**:\n"
+        "   - 'frontend-team': Visual issues, dark mode, CSS.\n"
+        "   - 'backend-team': API errors, general server logic, refactoring.\n"
+        "   - 'database-team': SQL performance, migrations, schema issues.\n"
+        "   - 'security-team': Use for any security-labeled issues.\n"
+        "   - 'docs-team': Documentation-only changes.\n\n"
+        "3. **Comments**: If you apply 'needs-info', you MUST leave a polite comment asking for details.\n\n"
+        "Output a valid JSON object matching this schema:\n"
         "{\n"
-        '  "apply_labels": ["<label>"],\n'
+        '  "apply_labels": ["label1", "label2"],\n'
         '  "remove_labels": [],\n'
-        '  "assign_to": ["<team_name>"],\n'
-        '  "leave_comment": "comment text or null",\n'
-        '  "submit_decision": true_if_done_or_false_otherwise\n'
-        "}\n\n"
-        "Crucially, only assign teams from 'available_assignees', and only labels from 'available_labels'.\n"
-        "Your goal is to eventually set submit_decision to true to submit the triage."
+        '  "assign_to": ["team1"],\n'
+        '  "leave_comment": "Reasoning/Request for info",\n'
+        '  "submit_decision": true\n'
+        "}\n"
+        "Crucially: Only use available labels and assignees. Set 'submit_decision' to true when you are finished."
     )
     
     user_prompt = f"Current Issue Observation:\n{json.dumps(obs_dict, indent=2)}\n\nHistory:\n"
@@ -82,12 +94,13 @@ def get_model_action(client: OpenAI, obs_dict: dict, history: List[str]) -> Mygi
         # Re-raise to let the caller handle reporting the error to the UI
         raise exc
 
-async def run_episode(client: OpenAI, env: MygithubtriageEnv) -> tuple[bool, int, float, List[float]]:
+async def run_episode(client: OpenAI, env: MygithubtriageEnv) -> tuple[bool, int, float, List[float], Optional[str]]:
     history: List[str] = []
     rewards: List[float] = []
     steps_taken = 0
     score = 0.0
     success = False
+    error_msg = None
 
     try:
         result = await env.reset()
@@ -136,9 +149,10 @@ async def run_episode(client: OpenAI, env: MygithubtriageEnv) -> tuple[bool, int
         success = score >= SUCCESS_SCORE_THRESHOLD
         
     except Exception as e:
-        print(f"[DEBUG] Episode error: {e}", flush=True)
+        error_msg = str(e)
+        print(f"[DEBUG] Episode error: {error_msg}", flush=True)
 
-    return success, steps_taken, score, rewards
+    return success, steps_taken, score, rewards, error_msg
 
 async def run_full_evaluation(api_key: Optional[str] = None, base_url: str = API_BASE_URL, model: str = MODEL_NAME) -> Dict[str, Any]:
     """Runs a full 3-task evaluation and returns the results as a dictionary."""
@@ -185,45 +199,47 @@ async def run_full_evaluation(api_key: Optional[str] = None, base_url: str = API
     finally:
         await env.close()
 
-async def run_full_evaluation_stream(api_key: Optional[str] = None, base_url: str = API_BASE_URL, model: str = MODEL_NAME):
-    """Runs a full 3-task evaluation and yields results as Server-Sent Events (SSE)."""
+async def run_full_evaluation_stream(
+    api_key: Optional[str] = None, 
+    base_url: str = API_BASE_URL, 
+    model: str = MODEL_NAME,
+    task_ids: Optional[List[int]] = None
+):
+    """Runs selective evaluation and yields results as Server-Sent Events (SSE)."""
     episodes_results = []
     total_score = 0.0
-    num_episodes = 3
     
     def format_event(event_type: str, data: Any) -> str:
         return f"data: {json.dumps({'type': event_type, 'data': data})}\n\n"
 
     try:
         actual_api_key = api_key or OPENAI_API_KEY
-        
-        # Immediate logging to resolve 'nothing in logs' issue
-        yield format_event("log", f"[SYSTEM] Initializing Evaluation...")
-        yield format_event("log", f"[SYSTEM] Connecting to LLM at {base_url}...")
-        
-        if not actual_api_key:
-             yield format_event("log", "[SYSTEM] Warning: No API Key found (OPENAI_API_KEY / HF_TOKEN).")
-        
         client = OpenAI(base_url=base_url, api_key=actual_api_key)
         env = MygithubtriageEnv(base_url=f"http://127.0.0.1:{PORT}")
-        yield format_event("log", f"[START] task={TASK_NAME} env={BENCHMARK} model={model}")
-        await asyncio.sleep(0.1)
         
-        total_steps = 0
-        all_rewards = []
-        for ep in range(num_episodes):
-            yield format_event("log", f"--- Episode {ep+1} ---")
+        yield format_event("log", f"[START] task={TASK_NAME} env={BENCHMARK} model={model}")
+        
+        # If no task_ids provided, run all 15 tasks
+        targets = task_ids if task_ids else list(range(1, 16))
+        
+        for idx, t_id in enumerate(targets):
+            yield format_event("log", f"--- Episode {idx+1} (Task ID: {t_id}) ---")
             
-            # Inline the episode loop so we can stream steps
             history: List[str] = []
             rewards: List[float] = []
             steps_taken = 0
             score = 0.0
+            success = False
+            error_msg = None
             
             try:
-                result = await env.reset()
+                # Reset with specific task ID
+                result = await env.reset(task_id=t_id)
                 obs = result.observation
                 
+                yield format_event("log", f"[OBSERVATION] Title: '{obs.title}'")
+                yield format_event("log", f"[OBSERVATION] Body: '{obs.body}'")
+
                 for step in range(1, MAX_STEPS + 1):
                     if result.done:
                         break
@@ -232,14 +248,10 @@ async def run_full_evaluation_stream(api_key: Optional[str] = None, base_url: st
                         "title": obs.title, "body": obs.body, "author": obs.author,
                         "current_labels": obs.current_labels, "current_assignees": obs.current_assignees,
                         "comments": obs.comments, "available_labels": obs.available_labels,
-                        "available_assignees": obs.available_assignees, "feedback": obs.feedback,
+                        "available_assignees": obs.available_assignees,
                     }
 
-                    if step == 1:
-                        yield format_event("log", f"[OBSERVATION] Title: '{obs.title}' | Body: '{obs.body}'")
-
-                    yield format_event("log", f"Determining triage for Step {step}...")
-                    # Since get_model_action is sync, let's run it in an executor so we don't block
+                    yield format_event("log", f"Agent thinking... (Step {step})")
                     loop = asyncio.get_running_loop()
                     action = await loop.run_in_executor(None, get_model_action, client, obs_dict, history)
                     action_repr = action.model_dump_json()
@@ -252,12 +264,9 @@ async def run_full_evaluation_stream(api_key: Optional[str] = None, base_url: st
                     rewards.append(reward)
                     steps_taken = step
 
-                    done_val = str(done).lower()
-                    log_msg = f"[STEP] step={step} action={action_repr} reward={reward:.2f} done={done_val} error=null"
+                    log_msg = f"[STEP] step={step} action={action_repr} reward={reward:+.2f} done={str(done).lower()}"
                     yield format_event("log", log_msg)
-
-                    history_str = f"Step {step}: {action_repr} -> reward {reward:+.2f}"
-                    history.append(history_str)
+                    history.append(f"Step {step}: {action_repr} -> {reward:+.2f}")
 
                     if done:
                         break
@@ -268,23 +277,23 @@ async def run_full_evaluation_stream(api_key: Optional[str] = None, base_url: st
                 success = score >= SUCCESS_SCORE_THRESHOLD
                 
             except Exception as e:
-                error_msg = str(e)
-                if "401" in error_msg or "api_key" in error_msg.lower():
-                    yield format_event("error", "AUTHENTICATION ERROR: Your OpenAI API Key is invalid or missing.")
-                else:
-                    yield format_event("error", f"API Error: {error_msg}")
+                error_str = str(e)
+                yield format_event("error", f"Episode {t_id} failed: {error_str}")
                 success = False
-                break # Stop evaluation on API error
+                error_msg = error_str  # Capture for final results
             
             total_score += score
-            ep_res = {"episode": ep + 1, "score": score, "steps": steps_taken, "success": success}
-            episodes_results.append(ep_res)
+            episodes_results.append({
+                "episode": idx + 1, 
+                "task_id": t_id, 
+                "score": score, 
+                "steps": steps_taken, 
+                "success": success,
+                "error": error_msg if not success else None
+            })
             
-        avg_score = total_score / num_episodes
-        
-        # Use the same exact formatting for the streaming end log
-        final_log = f"[END] success={success_val} steps={total_steps} score={avg_score:.2f} rewards={rewards_str}"
-        yield format_event("log", final_log)
+        avg_score = total_score / len(targets) if targets else 0
+        yield format_event("log", f"[END] success={str(avg_score >= SUCCESS_SCORE_THRESHOLD).lower()} score={avg_score:.2f}")
 
         yield format_event("done", {
             "average_score": avg_score,

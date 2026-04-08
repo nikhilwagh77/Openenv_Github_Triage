@@ -1,8 +1,4 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-#
-# This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree.
+"""Mygithubtriage Environment Client."""
 
 """Mygithubtriage Environment Client."""
 
@@ -12,7 +8,10 @@ from openenv.core import EnvClient
 from openenv.core.client_types import StepResult
 from openenv.core.env_server.types import State
 
-from .models import MygithubtriageAction, MygithubtriageObservation
+try:
+    from .models import MygithubtriageAction, MygithubtriageObservation
+except ImportError:
+    from server.models import MygithubtriageAction, MygithubtriageObservation
 
 
 class MygithubtriageEnv(
