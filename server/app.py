@@ -33,16 +33,7 @@ app = create_app(
 @app.get("/tasks")
 async def get_tasks():
     """Returns metadata for all available triage tasks."""
-    return JSONResponse(content=[
-        {
-            "id": t["id"],
-            "title": t["title"],
-            "difficulty": t["difficulty"],
-            # Explicit grader metadata helps external validators detect graded tasks.
-            "grader": t.get("grader", {"type": "rule_based"}),
-        }
-        for t in TASKS_LIST
-    ])
+    return JSONResponse(content=[t for t in TASKS_LIST])
 
 @app.get("/run-agent-stream")
 async def run_agent_stream(ids: Optional[str] = Query(None)):

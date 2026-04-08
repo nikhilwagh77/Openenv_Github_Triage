@@ -201,6 +201,9 @@ class MygithubtriageEnvironment(Environment):
     def _generate_observation(self, feedback: str, done: bool, reward: float) -> MygithubtriageObservation:
         task = self._current_task
         
+        # FINAL SAFETY CLAMP: Force every reward emitted into the strictly (0, 1) range [0.1, 0.9]
+        safe_reward = max(0.1, min(0.9, reward))
+        
         return MygithubtriageObservation(
             issue_id=task["id"],
             title=task["title"],
@@ -214,7 +217,7 @@ class MygithubtriageEnvironment(Environment):
             task_difficulty=task["difficulty"],
             feedback=feedback,
             done=done,
-            reward=reward,
+            reward=safe_reward,
         )
 
     def step(self, action: MygithubtriageAction) -> MygithubtriageObservation:  # type: ignore[override]
