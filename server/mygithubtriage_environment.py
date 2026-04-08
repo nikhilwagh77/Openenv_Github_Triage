@@ -31,7 +31,7 @@ TASKS_LIST = [
         "body": "The link to 'Privacy Policy' in the footer returns a 404 error. Please fix.",
         "author": "web_surfer",
         "expected_labels": ["bug", "ui"], "expected_assignees": ["frontend-team"], "needs_comment": False,
-        "grader": {"type": "rule_based", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
+        "grader": {"type": "rule_based", "score_range": {"min": 0.0, "max": 1.0}}
     },
     {
         "id": 2, "difficulty": "medium",
@@ -39,7 +39,7 @@ TASKS_LIST = [
         "body": "Github security scan found a high-severity vulnerability in lodash < 4.17.21. We need to upgrade.",
         "author": "dep-bot",
         "expected_labels": ["security", "backend"], "expected_assignees": ["backend-team", "security-team"], "needs_comment": False,
-        "grader": {"type": "rule_based", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
+        "grader": {"type": "rule_based", "score_range": {"min": 0.0, "max": 1.0}}
     },
     {
         "id": 3, "difficulty": "easy",
@@ -155,8 +155,23 @@ class MygithubtriageEnvironment(Environment):
         self.current_assignees = []
         self.comments = []
 
+    def get_metadata(self):
+        """Override metadata for framework discovery."""
+        from openenv.core.env_server.types import EnvironmentMetadata
+        return EnvironmentMetadata(
+            name="mygithubtriage",
+            description="A GitHub Issue Triage environment for evaluating AI agent performance.",
+            version="1.0.0",
+        )
+
     def get_tasks(self) -> List[dict]:
-        """Expose tasks to the OpenEnv framework."""
+        """Expose tasks to the OpenEnv framework with consistent grader metadata."""
+        for task in self.tasks:
+            if "grader" not in task:
+                task["grader"] = {
+                    "type": "rule_based", 
+                    "score_range": {"min": 0.0, "max": 1.0}
+                }
         return self.tasks
 
     def reset(self, task_id: int = None) -> MygithubtriageObservation:
@@ -304,9 +319,17 @@ class MygithubtriageEnvironment(Environment):
             score = 1.0 - penalty
             
         # STRICT REQUIREMENT: Score must be in (0, 1) exclusive.
-        # We map [0, 1] to [0.1, 0.9] to be absolutely safe.
+        # We target the [0.1, 0.9] range.
         clamped_score = max(0.0, min(1.0, score))
-        return round(0.1 + (clamped_score * 0.8), 3)
+        final = round(0.1 + (clamped_score * 0.8), 3)
+        
+        # Hard boundary enforcement
+        if final <= 0.0:
+            final = 0.1
+        if final >= 1.0:
+            final = 0.9
+            
+        return final
 
     @property
     def state(self) -> State:
