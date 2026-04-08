@@ -39,8 +39,8 @@ The environment simulates a repository with 15 distinct, real-world issue scenar
 ### Installation
 1.  Clone the repository:
     ```bash
-    git clone <your-repo-url>
-    cd github_triage
+    git clone https://github.com/nikhilwagh77/Openenv_Github_Triage
+    cd Openenv_Github_Triage
     ```
 2.  Install dependencies:
     ```bash
