@@ -35,7 +35,7 @@ async def get_tasks():
     """Returns metadata for all available triage tasks."""
     return JSONResponse(content=[
         {"id": t["id"], "title": t["title"], "difficulty": t["difficulty"]} 
-        for t in TASKS
+        for t in TASKS_LIST
     ])
 
 @app.get("/run-agent-stream")

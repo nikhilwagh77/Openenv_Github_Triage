@@ -24,8 +24,7 @@ AVAILABLE_ASSIGNEES = [
 ]
 
 # Expanded dataset of 15 tasks for comprehensive evaluation
-# Expanded dataset of 15 realistic GitHub tasks for comprehensive evaluation
-TASKS = [
+TASKS_LIST = [
     {
         "id": 1, "difficulty": "easy",
         "title": "Broken link in footer",
@@ -140,16 +139,22 @@ class MygithubtriageEnvironment(Environment):
     """
 
     SUPPORTS_CONCURRENT_SESSIONS: bool = True
+    tasks = TASKS_LIST
 
     def __init__(self):
         """Initialize the mygithubtriage environment."""
         self._state = State(episode_id=str(uuid4()), step_count=0)
         self._reset_count = 0
-        self._current_task = None
+        self._last_score = 0.0
+        self._current_task = self.tasks[0]
         
         self.current_labels = []
         self.current_assignees = []
         self.comments = []
+
+    def get_tasks(self) -> List[dict]:
+        """Expose tasks to the OpenEnv framework."""
+        return self.tasks
 
     def reset(self, task_id: int = None) -> MygithubtriageObservation:
         """
@@ -159,13 +164,13 @@ class MygithubtriageEnvironment(Environment):
         self._state = State(episode_id=str(uuid4()), step_count=0)
         
         if task_id is not None:
-            # Find the task by ID (handle both int and str from validator)
-            task = next((t for t in TASKS if str(t["id"]) == str(task_id)), TASKS[0])
+            # Find the task by ID (handle string or int IDs)
+            task = next((t for t in self.tasks if str(t["id"]) == str(task_id)), self.tasks[0])
             self._current_task = task
         else:
             # Sequential fallback
-            task_idx = self._reset_count % len(TASKS)
-            self._current_task = TASKS[task_idx]
+            task_idx = self._reset_count % len(self.tasks)
+            self._current_task = self.tasks[task_idx]
             self._reset_count += 1
         
         self.current_labels = []
@@ -290,10 +295,10 @@ class MygithubtriageEnvironment(Environment):
         else:
             score = 1.0 - penalty
             
-        # Ensure score is strictly in (0, 1) as required by Phase 2 validation.
-        # Maps [0, 1] range to [0.01, 0.99]
+        # STRICT REQUIREMENT: Score must be in (0, 1) exclusive.
+        # We map [0, 1] to [0.1, 0.9] to be absolutely safe.
         clamped_score = max(0.0, min(1.0, score))
-        return round(0.01 + (clamped_score * 0.98), 3)
+        return round(0.1 + (clamped_score * 0.8), 3)
 
     @property
     def state(self) -> State:
