@@ -16,10 +16,10 @@ except ImportError:
 
 try:
     from ..models import MygithubtriageAction, MygithubtriageObservation
-    from .mygithubtriage_environment import MygithubtriageEnvironment, TASKS
+    from .mygithubtriage_environment import MygithubtriageEnvironment, TASKS_LIST
 except ImportError:
     from models import MygithubtriageAction, MygithubtriageObservation
-    from server.mygithubtriage_environment import MygithubtriageEnvironment, TASKS
+    from server.mygithubtriage_environment import MygithubtriageEnvironment, TASKS_LIST
 
 # Create the app
 app = create_app(
