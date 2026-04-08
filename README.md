@@ -1,6 +1,15 @@
-# GitHub Triage Lite | OpenEnv Environment
+---
+title: GitHub Triage OpenEnv
+emoji: 🤖
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+pinned: false
+---
 
-A high-fidelity simulation environment for training and evaluating AI agents on GitHub Issue Triage tasks. Built on the **OpenEnv** specification for the Meta OpenEnv Hackathon.
+# GitHub Triage | OpenEnv Environment
+
+A high-fidelity simulation environment for training and evaluating AI agents on GitHub Issue Triage tasks. Built on the **OpenEnv** specification .
 
 ## 🚀 The Problem
 Open-source maintainers are often overwhelmed by the volume of incoming issues. Manual triaging—labeling, assigning to teams, and requesting missing information—is a significant bottleneck. **GitHub Triage Lite** provides a sandbox to develop AI agents that can automate this process with human-like precision.
@@ -24,7 +33,7 @@ The environment simulates a repository with 15 distinct, real-world issue scenar
 ### Prerequisites
 - Python 3.10+
 - [uv](https://github.com/astral-sh/uv) (Recommended for dependency management)
-- OpenAI API Key
+- OpenAI API Key or other LLM
 
 ### Installation
 1.  Clone the repository:
