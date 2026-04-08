@@ -206,7 +206,7 @@ async def root():
             </div>
             <div style="display: flex; gap: 20px;">
                 <a href="/docs" target="_blank" class="btn btn-outline" style="padding: 6px 15px; font-size: 0.8rem;">API Docs</a>
-                <a href="https://github.com/nikhilwagh77/github_triage" target="_blank" class="btn btn-outline" style="padding: 6px 15px; font-size: 0.8rem;">Repository</a>
+                <a href="https://github.com/nikhilwagh77/Openenv_Github_Triage" target="_blank" class="btn btn-outline" style="padding: 6px 15px; font-size: 0.8rem;">Repository</a>
             </div>
         </header>
 
