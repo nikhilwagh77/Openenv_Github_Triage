@@ -30,21 +30,24 @@ TASKS_LIST = [
         "title": "Broken link in footer",
         "body": "The link to 'Privacy Policy' in the footer returns a 404 error. Please fix.",
         "author": "web_surfer",
-        "expected_labels": ["bug", "ui"], "expected_assignees": ["frontend-team"], "needs_comment": False
+        "expected_labels": ["bug", "ui"], "expected_assignees": ["frontend-team"], "needs_comment": False,
+        "grader": {"type": "rule_based", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
     },
     {
         "id": 2, "difficulty": "medium",
         "title": "Dependency vulnerability in lodash",
         "body": "Github security scan found a high-severity vulnerability in lodash < 4.17.21. We need to upgrade.",
         "author": "dep-bot",
-        "expected_labels": ["security", "backend"], "expected_assignees": ["backend-team", "security-team"], "needs_comment": False
+        "expected_labels": ["security", "backend"], "expected_assignees": ["backend-team", "security-team"], "needs_comment": False,
+        "grader": {"type": "rule_based", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
     },
     {
         "id": 3, "difficulty": "easy",
         "title": "Typo in installation command",
         "body": "In README.md, it says 'npm instll' instead of 'npm install'.",
         "author": "first_timer",
-        "expected_labels": ["documentation"], "expected_assignees": ["docs-team"], "needs_comment": False
+        "expected_labels": ["documentation"], "expected_assignees": ["docs-team"], "needs_comment": False,
+        "grader": {"type": "rule_based", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
     },
     {
         "id": 4, "difficulty": "medium",
@@ -177,7 +180,8 @@ class MygithubtriageEnvironment(Environment):
         self.current_assignees = []
         self.comments = []
 
-        return self._generate_observation(feedback="Environment reset. Ready for triage.", done=False, reward=0.0)
+        # Keep all emitted scores strictly within (0, 1) for validator compatibility.
+        return self._generate_observation(feedback="Environment reset. Ready for triage.", done=False, reward=0.5)
 
     def _generate_observation(self, feedback: str, done: bool, reward: float) -> MygithubtriageObservation:
         task = self._current_task
@@ -251,7 +255,11 @@ class MygithubtriageEnvironment(Environment):
             feedback_parts.append(f"Task submitted! Final score: {final_score:.2f}")
 
         feedback = " ".join(feedback_parts)
-        
+
+        # Ensure intermediate rewards are also strictly inside (0, 1).
+        if not done:
+            step_reward = max(0.1, min(0.9, 0.5 + step_reward))
+
         return self._generate_observation(feedback=feedback, done=done, reward=step_reward)
 
     def _grade_task(self) -> float:

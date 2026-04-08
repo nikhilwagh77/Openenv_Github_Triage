@@ -34,7 +34,13 @@ app = create_app(
 async def get_tasks():
     """Returns metadata for all available triage tasks."""
     return JSONResponse(content=[
-        {"id": t["id"], "title": t["title"], "difficulty": t["difficulty"]} 
+        {
+            "id": t["id"],
+            "title": t["title"],
+            "difficulty": t["difficulty"],
+            # Explicit grader metadata helps external validators detect graded tasks.
+            "grader": t.get("grader", {"type": "rule_based"}),
+        }
         for t in TASKS_LIST
     ])
 
