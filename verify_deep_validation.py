@@ -19,12 +19,12 @@ def check_requirements():
         print(f"  Found {len(tasks)} tasks via /tasks")
         
         if len(tasks) < 3:
-            print("  ❌ FAIL: Less than 3 tasks found!")
+            print("  [FAIL] Less than 3 tasks found!")
         else:
-            print(f"  ✅ PASS: {len(tasks)} tasks exposed.")
+            print(f"  [PASS] {len(tasks)} tasks exposed.")
             
     except Exception as e:
-        print(f"  ❌ FAIL: Could not reach /tasks: {e}")
+        print(f"  [FAIL] Could not reach /tasks: {e}")
 
     # 2. Check Task Graders (Reset and Score)
     print("\n[2/3] Checking Task Graders and Score Range for ALL 15 tasks...")
@@ -45,7 +45,6 @@ def check_requirements():
                 print(f"    Reset successful for task {tid}")
                 
                 # Take an empty step to get a score
-                # RELIANCE: OpenEnv server usually expects action fields wrapped in an "action" key
                 step_payload = {
                     "action": {
                         "apply_labels": [], 
@@ -61,33 +60,32 @@ def check_requirements():
                 if step_resp.status_code == 200:
                     step_data = step_resp.json()
                     
-                    # OpenEnv payload contains 'reward' (score) at root
                     score = step_data.get("reward")
                     print(f"    Reward (Score) received: {score}")
                     
                     if score is not None:
                         # STRICT check: 0 < score < 1
                         if 0.0 < score < 1.0:
-                            print(f"    ✅ PASS: Score {score} is strictly within (0, 1)")
+                            print(f"    [PASS] Score {score} is strictly within (0, 1)")
                             passed_graders += 1
                         else:
-                            print(f"    ❌ FAIL: Score {score} is OUT OF RANGE (must be strictly between 0 and 1)")
+                            print(f"    [FAIL] Score {score} is OUT OF RANGE (must be strictly between 0 and 1)")
                     else:
-                        print("    ❌ FAIL: No reward found in observation")
+                        print("    [FAIL] No reward found in observation")
                 else:
-                    print(f"    ❌ FAIL: Step failed (HTTP {step_resp.status_code}): {step_resp.text}")
+                    print(f"    [FAIL] Step failed (HTTP {step_resp.status_code}): {step_resp.text}")
             else:
-                print(f"    ❌ FAIL: Could not reset task {tid} (HTTP {reset_resp.status_code})")
+                print(f"    [FAIL] Could not reset task {tid} (HTTP {reset_resp.status_code})")
                 
         except Exception as e:
-            print(f"    ❌ FAIL: Error testing task {tid}: {e}")
+            print(f"    [FAIL] Error testing task {tid}: {e}")
 
     # Final Summary
     print("\n--- Summary ---")
     if passed_graders >= 3:
-        print(f"✅ FOUND {passed_graders} VALID GRADERS. This submission should pass Step 2!")
+        print(f"FOUND {passed_graders} VALID GRADERS. This submission should pass Step 2!")
     else:
-        print(f"❌ ONLY FOUND {passed_graders} VALID GRADERS. It will fail the validator!")
+        print(f"ONLY FOUND {passed_graders} VALID GRADERS. It will fail the validator!")
 
 if __name__ == "__main__":
     check_requirements()

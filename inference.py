@@ -12,10 +12,10 @@ except ImportError:
     from client import MygithubtriageEnv
 
 # Configuration
-API_BASE_URL = os.getenv("API_BASE_URL") or "https://api.openai.com/v1"
-MODEL_NAME = os.getenv("MODEL_NAME") or os.getenv("MODEL") or "gpt-4o"
+API_BASE_URL = os.getenv("API_BASE_URL") or "https://router.huggingface.co/v1"
+MODEL_NAME = os.getenv("MODEL_NAME") or os.getenv("MODEL") or "Qwen/Qwen2.5-72B-Instruct"
 # Support injected API_KEY (validator), OPENAI_API_KEY, or Hugging Face tokens
-API_KEY = os.getenv("API_KEY") or os.getenv("OPENAI_API_KEY") or os.getenv("HF_TOKEN") or ""
+API_KEY = os.getenv("API_KEY") or os.getenv("HF_TOKEN") or os.getenv("OPENAI_API_KEY") or ""
 PORT = int(os.getenv("PORT") or 7860)
 
 TASK_NAME = os.getenv("MY_ENV_V4_TASK") or "github_triage"
@@ -37,7 +37,8 @@ def log_step(step: int, action: Any, reward: float, done: bool, error: Optional[
 def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
     rewards_str = ",".join(f"{r:.2f}" for r in rewards)
     success_val = str(success).lower()
-    print(f"[END] success={success_val} steps={steps} score={score:.2f} rewards={rewards_str}", flush=True)
+    print(f"[END] success={success_val} steps={steps} score={score:.3f} rewards={rewards_str}", flush=True)
+
 
 def get_model_action(client: OpenAI, obs_dict: dict, history: List[str]) -> MygithubtriageAction:
     """Uses LLM to decide on an action based on observation with improved prompt logic."""
@@ -156,11 +157,14 @@ async def run_episode(client: OpenAI, env: MygithubtriageEnv, task_id: Optional[
 
     return success, steps_taken, score, rewards, error_msg
 
-async def run_full_evaluation(api_key: Optional[str] = None, base_url: str = API_BASE_URL, model: str = MODEL_NAME) -> Dict[str, Any]:
-    """Runs a full 3-task evaluation and returns the results as a dictionary."""
+async def run_full_evaluation(api_key: Optional[str] = None, base_url: Optional[str] = None, model: str = MODEL_NAME) -> Dict[str, Any]:
+    """Runs a full 15-task evaluation and returns the results as a dictionary."""
     actual_api_key = api_key or API_KEY
+    actual_base_url = base_url or API_BASE_URL
     
-    client = OpenAI(base_url=base_url, api_key=actual_api_key)
+    # Critical: Ensure client uses the actual_base_url (proxy)
+    client = OpenAI(base_url=actual_base_url, api_key=actual_api_key)
+
     env = MygithubtriageEnv(base_url=f"http://127.0.0.1:{PORT}")
     
     episodes_results = []
@@ -217,7 +221,11 @@ async def run_full_evaluation_stream(
 
     try:
         actual_api_key = api_key or API_KEY
-        client = OpenAI(base_url=base_url, api_key=actual_api_key)
+        actual_base_url = base_url or API_BASE_URL
+        
+        # Critical: Ensure client uses the actual_base_url (proxy)
+        client = OpenAI(base_url=actual_base_url, api_key=actual_api_key)
+
         env = MygithubtriageEnv(base_url=f"http://127.0.0.1:{PORT}")
         
         yield format_event("log", f"[START] task={TASK_NAME} env={BENCHMARK} model={model}")
