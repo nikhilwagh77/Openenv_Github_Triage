@@ -21,10 +21,6 @@ except ImportError:
     from models import MygithubtriageAction, MygithubtriageObservation
     from server.mygithubtriage_environment import MygithubtriageEnvironment, TASKS_LIST
 
-@app.get("/health")
-async def health():
-    """Health check endpoint for Docker and orchestrator."""
-    return JSONResponse(content={"status": "healthy"})
 
 # Create the app
 app = create_app(
@@ -34,6 +30,11 @@ app = create_app(
     env_name="mygithubtriage",
     max_concurrent_envs=1,
 )
+
+@app.get("/health")
+async def health():
+    """Health check endpoint for Docker and orchestrator."""
+    return JSONResponse(content={"status": "healthy"})
 
 @app.get("/tasks")
 async def get_tasks():
