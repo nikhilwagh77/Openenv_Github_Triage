@@ -95,7 +95,7 @@ def get_model_action(client: OpenAI, obs_dict: dict, history: List[str]) -> Mygi
         # Re-raise to let the caller handle reporting the error to the UI
         raise exc
 
-async def run_episode(client: OpenAI, env: MygithubtriageEnv) -> tuple[bool, int, float, List[float], Optional[str]]:
+async def run_episode(client: OpenAI, env: MygithubtriageEnv, task_id: Optional[int] = None) -> tuple[bool, int, float, List[float], Optional[str]]:
     history: List[str] = []
     rewards: List[float] = []
     steps_taken = 0
@@ -104,7 +104,8 @@ async def run_episode(client: OpenAI, env: MygithubtriageEnv) -> tuple[bool, int
     error_msg = None
 
     try:
-        result = await env.reset()
+        # Reset with specific task ID if provided
+        result = await env.reset(task_id=task_id)
         obs = result.observation
         
         for step in range(1, MAX_STEPS + 1):
@@ -164,7 +165,7 @@ async def run_full_evaluation(api_key: Optional[str] = None, base_url: str = API
     
     episodes_results = []
     total_score = 0.0
-    num_episodes = 3
+    num_episodes = 15
     
     output_logs = []
     def log(msg):
@@ -177,8 +178,9 @@ async def run_full_evaluation(api_key: Optional[str] = None, base_url: str = API
         total_steps = 0
         all_rewards = []
         for ep in range(num_episodes):
-            log(f"--- Episode {ep+1} ---")
-            success, steps, score, rewards, error_msg = await run_episode(client, env)
+            task_id = ep + 1
+            log(f"--- Episode {ep+1} (Task ID: {task_id}) ---")
+            success, steps, score, rewards, error_msg = await run_episode(client, env, task_id=task_id)
             total_score += score
             total_steps += steps
             all_rewards.extend(rewards)
