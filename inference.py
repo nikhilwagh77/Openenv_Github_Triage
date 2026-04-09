@@ -95,7 +95,7 @@ def get_model_action(client: OpenAI, obs_dict: dict, history: List[str]) -> Mygi
         # Re-raise to let the caller handle reporting the error to the UI
         raise exc
 
-async def run_episode(client: OpenAI, env: MygithubtriageEnv, task_id: Optional[int] = None) -> tuple[bool, int, float, List[float], Optional[str]]:
+async def run_episode(client: OpenAI, env: MygithubtriageEnv, task_id: Optional[str] = None) -> tuple[bool, int, float, List[float], Optional[str]]:
     history: List[str] = []
     rewards: List[float] = []
     steps_taken = 0
@@ -178,7 +178,7 @@ async def run_full_evaluation(api_key: Optional[str] = None, base_url: str = API
         total_steps = 0
         all_rewards = []
         for ep in range(num_episodes):
-            task_id = ep + 1
+            task_id = str(ep + 1)
             log(f"--- Episode {ep+1} (Task ID: {task_id}) ---")
             success, steps, score, rewards, error_msg = await run_episode(client, env, task_id=task_id)
             total_score += score
@@ -206,7 +206,7 @@ async def run_full_evaluation_stream(
     api_key: Optional[str] = None, 
     base_url: str = API_BASE_URL, 
     model: str = MODEL_NAME,
-    task_ids: Optional[List[int]] = None
+    task_ids: Optional[List[str]] = None
 ):
     """Runs selective evaluation and yields results as Server-Sent Events (SSE)."""
     episodes_results = []
@@ -223,7 +223,7 @@ async def run_full_evaluation_stream(
         yield format_event("log", f"[START] task={TASK_NAME} env={BENCHMARK} model={model}")
         
         # If no task_ids provided, run all 15 tasks
-        targets = task_ids if task_ids else list(range(1, 16))
+        targets = task_ids if task_ids else [str(i) for i in range(1, 16)]
         
         for idx, t_id in enumerate(targets):
             yield format_event("log", f"--- Episode {idx+1} (Task ID: {t_id}) ---")

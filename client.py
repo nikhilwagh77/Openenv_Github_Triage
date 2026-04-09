@@ -10,8 +10,11 @@ from openenv.core.env_server.types import State
 
 try:
     from .models import MygithubtriageAction, MygithubtriageObservation
-except ImportError:
-    from server.models import MygithubtriageAction, MygithubtriageObservation
+except (ImportError, ValueError):
+    try:
+        from models import MygithubtriageAction, MygithubtriageObservation
+    except ImportError:
+        from server.models import MygithubtriageAction, MygithubtriageObservation
 
 
 class MygithubtriageEnv(

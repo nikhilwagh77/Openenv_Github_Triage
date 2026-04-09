@@ -22,124 +22,139 @@ AVAILABLE_ASSIGNEES = [
 
 TASKS_LIST = [
     {
-        "id": 1, "difficulty": "easy",
+        "id": "1", "name": "Broken Link Triage", "description": "Fix broken footer link",
+        "difficulty": "easy",
         "title": "Broken link in footer",
         "body": "The link to 'Privacy Policy' in the footer returns a 404 error. Please fix.",
         "author": "web_surfer",
         "expected_labels": ["bug", "ui"], "expected_assignees": ["frontend-team"], "needs_comment": False,
-        "grader": {"type": "rule_based", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
+        "grader": {"type": "rule_based", "evaluate_on": "step", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
     },
     {
-        "id": 2, "difficulty": "medium",
+        "id": "2", "name": "Security Vulnerability", "description": "Handle dependency vulnerability",
+        "difficulty": "medium",
         "title": "Dependency vulnerability in lodash",
         "body": "Github security scan found a high-severity vulnerability in lodash < 4.17.21. We need to upgrade.",
         "author": "dep-bot",
         "expected_labels": ["security", "backend"], "expected_assignees": ["backend-team", "security-team"], "needs_comment": False,
-        "grader": {"type": "rule_based", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
+        "grader": {"type": "rule_based", "evaluate_on": "step", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
     },
     {
-        "id": 3, "difficulty": "easy",
+        "id": "3", "name": "Typo in Command", "description": "Fix typo in installation command",
+        "difficulty": "easy",
         "title": "Typo in installation command",
         "body": "In README.md, it says 'npm instll' instead of 'npm install'.",
         "author": "first_timer",
         "expected_labels": ["documentation"], "expected_assignees": ["docs-team"], "needs_comment": False,
-        "grader": {"type": "rule_based", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
+        "grader": {"type": "rule_based", "evaluate_on": "step", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
     },
     {
-        "id": 4, "difficulty": "medium",
+        "id": "4", "name": "Search Bar Enhancement", "description": "Add search bar to navigation header",
+        "difficulty": "medium",
         "title": "Add search bar to navigation",
         "body": "Users are finding it hard to navigate. We should add a global search bar in the header.",
         "author": "ux_researcher",
         "expected_labels": ["enhancement", "ui"], "expected_assignees": ["frontend-team"], "needs_comment": False,
-        "grader": {"type": "rule_based", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
+        "grader": {"type": "rule_based", "evaluate_on": "step", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
     },
     {
-        "id": 5, "difficulty": "hard",
+        "id": "5", "name": "Login Crash Bug", "description": "Investigate and fix site crash on login attempt",
+        "difficulty": "hard",
         "title": "Site crashes on login attempt",
         "body": "Everytime I click login, the screen goes white. I don't see any error messages.",
         "author": "confused_user",
         "expected_labels": ["bug", "needs-info"], "expected_assignees": ["frontend-team"], "needs_comment": True,
-        "grader": {"type": "rule_based", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
+        "grader": {"type": "rule_based", "evaluate_on": "step", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
     },
     {
-        "id": 6, "difficulty": "easy",
+        "id": "6", "name": "Logo Update", "description": "Update logo to new version",
+        "difficulty": "easy",
         "title": "Update logo to new version",
         "body": "The marketing team has released a new logo. We need to swap logo.png with the new asset.",
         "author": "designer_01",
         "expected_labels": ["ui"], "expected_assignees": ["frontend-team"], "needs_comment": False,
-        "grader": {"type": "rule_based", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
+        "grader": {"type": "rule_based", "evaluate_on": "step", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
     },
     {
-        "id": 7, "difficulty": "medium",
+        "id": "7", "name": "API Performance", "description": "Address slow API response on dashboard",
+        "difficulty": "medium",
         "title": "Slow API response on /dashboard",
         "body": "The dashboard takes 8 seconds to load for users with more than 10 projects.",
         "author": "power_user",
         "expected_labels": ["performance", "backend"], "expected_assignees": ["backend-team"], "needs_comment": False,
-        "grader": {"type": "rule_based", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
+        "grader": {"type": "rule_based", "evaluate_on": "step", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
     },
     {
-        "id": 8, "difficulty": "hard",
+        "id": "8", "name": "Security: SQL Injection", "description": "Fix SQL injection vulnerability in user profile bio field",
+        "difficulty": "hard",
         "title": "SQL Injection in user profile",
         "body": "I can bypass the name length check and run arbitrary SQL in the 'bio' field.",
         "author": "pwn_master",
         "expected_labels": ["security", "backend"], "expected_assignees": ["security-team", "backend-team"], "needs_comment": False,
-        "grader": {"type": "rule_based", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
+        "grader": {"type": "rule_based", "evaluate_on": "step", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
     },
     {
-        "id": 9, "difficulty": "easy",
+        "id": "9", "name": "Default Theme Update", "description": "Change default theme to dark mode",
+        "difficulty": "easy",
         "title": "Change theme to dark mode by default",
         "body": "Most users prefer dark mode. Let's make it the default for new signups.",
         "author": "night_mode_fan",
         "expected_labels": ["enhancement", "ui"], "expected_assignees": ["frontend-team"], "needs_comment": False,
-        "grader": {"type": "rule_based", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
+        "grader": {"type": "rule_based", "evaluate_on": "step", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
     },
     {
-        "id": 10, "difficulty": "medium",
+        "id": "10", "name": "Cross-browser CSS Fix", "description": "Fix broken CSS layout on Safari mobile",
+        "difficulty": "medium",
         "title": "Broken CSS on Safari mobile",
         "body": "The layout totally breaks on Safari on iPhone. Buttons are overlapping.",
         "author": "apple_user",
         "expected_labels": ["bug", "ui"], "expected_assignees": ["frontend-team"], "needs_comment": False,
-        "grader": {"type": "rule_based", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
+        "grader": {"type": "rule_based", "evaluate_on": "step", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
     },
     {
-        "id": 11, "difficulty": "easy",
+        "id": "11", "name": "API Documentation", "description": "Add new API documentation section",
+        "difficulty": "easy",
         "title": "Add API documentation section",
         "body": "We need a new page explaining how to use our REST API endpoints.",
         "author": "api_integrator",
         "expected_labels": ["documentation", "enhancement"], "expected_assignees": ["docs-team"], "needs_comment": False,
-        "grader": {"type": "rule_based", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
+        "grader": {"type": "rule_based", "evaluate_on": "step", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
     },
     {
-        "id": 12, "difficulty": "medium",
+        "id": "12", "name": "Concurrent Login Bug", "description": "Fix issue with concurrent login sessions",
+        "difficulty": "medium",
         "title": "Concurrent login issue",
         "body": "Logging in from two devices at once sometimes deletes the session of the first device.",
         "author": "multi_tasker",
         "expected_labels": ["bug", "backend"], "expected_assignees": ["backend-team"], "needs_comment": False,
-        "grader": {"type": "rule_based", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
+        "grader": {"type": "rule_based", "evaluate_on": "step", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
     },
     {
-        "id": 13, "difficulty": "hard",
+        "id": "13", "name": "Vague Bug Report", "description": "Handle vague bug report requiring feedback",
+        "difficulty": "hard",
         "title": "It's not working properly",
         "body": "I tried to use the app and it didn't do what I expected.",
         "author": "vague_reporter",
         "expected_labels": ["needs-info"], "expected_assignees": [], "needs_comment": True,
-        "grader": {"type": "rule_based", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
+        "grader": {"type": "rule_based", "evaluate_on": "step", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
     },
     {
-        "id": 14, "difficulty": "medium",
+        "id": "14", "name": "Image Optimization", "description": "Optimize image upload performance",
+        "difficulty": "medium",
         "title": "Optimize image uploads",
         "body": "Uploading a 5MB image hangs the UI for several seconds.",
         "author": "photographer",
         "expected_labels": ["performance", "ui"], "expected_assignees": ["frontend-team"], "needs_comment": False,
-        "grader": {"type": "rule_based", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
+        "grader": {"type": "rule_based", "evaluate_on": "step", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
     },
     {
-        "id": 15, "difficulty": "easy",
+        "id": "15", "name": "Help Link Extension", "description": "Add support help link to navigation",
+        "difficulty": "easy",
         "title": "Add 'Help' link to navigation",
         "body": "People are getting lost. A link to the support page in the header would help.",
         "author": "support_agent",
         "expected_labels": ["enhancement", "ui"], "expected_assignees": ["frontend-team"], "needs_comment": False,
-        "grader": {"type": "rule_based", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
+        "grader": {"type": "rule_based", "evaluate_on": "step", "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}}
     }
 ]
 
@@ -174,15 +189,10 @@ class MygithubtriageEnvironment(Environment):
 
     def get_tasks(self) -> List[dict]:
         """Expose tasks to the OpenEnv framework with consistent grader metadata."""
-        for task in self.tasks:
-            if "grader" not in task:
-                task["grader"] = {
-                    "type": "rule_based",
-                    "score_range": {"min_exclusive": 0.0, "max_exclusive": 1.0}
-                }
+        # Our TASKS_LIST now already contains the full grader metadata required by OpenEnv spec.
         return self.tasks
 
-    def reset(self, task_id: int = None) -> MygithubtriageObservation:
+    def reset(self, task_id: Optional[str] = None) -> MygithubtriageObservation:
         """
         Reset the environment and pick a task.
         If task_id is provided, use that specific task. Otherwise select sequentially.

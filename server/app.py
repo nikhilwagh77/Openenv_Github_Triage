@@ -48,7 +48,7 @@ async def run_agent_stream(ids: Optional[str] = Query(None)):
     if root_dir not in sys.path:
         sys.path.append(root_dir)
 
-    task_ids = [int(i) for i in ids.split(",")] if ids else None
+    task_ids = [str(i) for i in ids.split(",")] if ids else None
 
     try:
         from inference import run_full_evaluation_stream
@@ -279,7 +279,7 @@ async def root():
                 list.innerHTML = tasks.map(t => `
                     <div class="task-item">
                         <input type="checkbox" id="task-${t.id}" value="${t.id}" checked>
-                        <label for="task-${t.id}">${t.title}</label>
+                        <label for="task-${t.id}">${t.name}</label>
                         <span class="badge badge-${t.difficulty}">${t.difficulty}</span>
                     </div>
                 `).join('');
@@ -328,7 +328,7 @@ async def root():
                             const match = msg.match(/Episode (\d+) \(Task ID: (\d+)\)/);
                             const epNum = match ? match[1] : '?';
                             const taskId = match ? match[2] : '?';
-                            const task = tasks.find(t => t.id == taskId) || { title: 'Unknown Task', difficulty: 'medium' };
+                            const task = tasks.find(t => String(t.id) === String(taskId)) || { name: 'Unknown Task', difficulty: 'medium' };
 
                             const card = document.createElement('div');
                             card.className = 'episode-card';
@@ -340,7 +340,7 @@ async def root():
                                 </div>
                                 <div class="episode-body">
                                     <div class="task-box">
-                                        <h3>${task.title}</h3>
+                                        <h3>${task.name}</h3>
                                         <p id="body-${epNum}">Initializing...</p>
                                     </div>
                                     <div class="timeline" id="timeline-${epNum}"></div>
