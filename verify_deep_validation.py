@@ -27,8 +27,9 @@ def check_requirements():
         print(f"  ❌ FAIL: Could not reach /tasks: {e}")
 
     # 2. Check Task Graders (Reset and Score)
-    print("\n[2/3] Checking Task Graders and Score Range...")
-    test_ids = ["1", "2", "3"]
+    print("\n[2/3] Checking Task Graders and Score Range for ALL 15 tasks...")
+    # Check all 15 tasks to be 100% sure
+    test_ids = [str(i) for i in range(1, 16)]
     passed_graders = 0
     
     for tid in test_ids:
@@ -44,24 +45,37 @@ def check_requirements():
                 print(f"    Reset successful for task {tid}")
                 
                 # Take an empty step to get a score
-                step_resp = requests.post(f"{BASE_URL}/step", json={
-                    "apply_labels": [], "remove_labels": [], "assign_to": [], "leave_comment": None, "submit_decision": True
-                })
-                step_data = step_resp.json()
+                # RELIANCE: OpenEnv server usually expects action fields wrapped in an "action" key
+                step_payload = {
+                    "action": {
+                        "apply_labels": [], 
+                        "remove_labels": [], 
+                        "assign_to": [], 
+                        "leave_comment": "Final review", 
+                        "submit_decision": True
+                    }
+                }
                 
-                # OpenEnv 'Observation' contains 'reward' (score)
-                score = step_data.get("reward")
-                print(f"    Reward (Score) received: {score}")
+                step_resp = requests.post(f"{BASE_URL}/step", json=step_payload)
                 
-                if score is not None:
-                    # STRICT check: 0 < score < 1
-                    if 0.0 < score < 1.0:
-                        print(f"    ✅ PASS: Score {score} is strictly within (0, 1)")
-                        passed_graders += 1
+                if step_resp.status_code == 200:
+                    step_data = step_resp.json()
+                    
+                    # OpenEnv payload contains 'reward' (score) at root
+                    score = step_data.get("reward")
+                    print(f"    Reward (Score) received: {score}")
+                    
+                    if score is not None:
+                        # STRICT check: 0 < score < 1
+                        if 0.0 < score < 1.0:
+                            print(f"    ✅ PASS: Score {score} is strictly within (0, 1)")
+                            passed_graders += 1
+                        else:
+                            print(f"    ❌ FAIL: Score {score} is OUT OF RANGE (must be strictly between 0 and 1)")
                     else:
-                        print(f"    ❌ FAIL: Score {score} is OUT OF RANGE (must be strictly between 0 and 1)")
+                        print("    ❌ FAIL: No reward found in observation")
                 else:
-                    print("    ❌ FAIL: No reward found in observation")
+                    print(f"    ❌ FAIL: Step failed (HTTP {step_resp.status_code}): {step_resp.text}")
             else:
                 print(f"    ❌ FAIL: Could not reset task {tid} (HTTP {reset_resp.status_code})")
                 

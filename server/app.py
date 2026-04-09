@@ -1,45 +1,115 @@
 # Copyright (c) 2026 OpenEnv Contributors.
 # FastAPI application for the Mygithubtriage Environment.
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Request, HTTPException, Body, Query
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from typing import List, Optional
+from openenv.core.env_server.serialization import deserialize_action, serialize_observation
+from openenv.core.env_server.types import ResetRequest
+import inspect
 import sys
 import os
 import json
 import traceback
 
 try:
-    from openenv.core.env_server.http_server import create_app
-except ImportError:
-    raise ImportError("openenv is required. Install with 'uv sync'")
+    # Add project root and server dir to path
+    import sys
+    import os
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(current_dir)
+    if current_dir not in sys.path:
+        sys.path.append(current_dir)
+    if project_root not in sys.path:
+        sys.path.append(project_root)
 
-try:
-    from ..models import MygithubtriageAction, MygithubtriageObservation
-    from .mygithubtriage_environment import MygithubtriageEnvironment, TASKS_LIST
-except ImportError:
+    import mygithubtriage_environment
+    from mygithubtriage_environment import MygithubtriageEnvironment, TASKS_LIST
+    import models
     from models import MygithubtriageAction, MygithubtriageObservation
-    from server.mygithubtriage_environment import MygithubtriageEnvironment, TASKS_LIST
+except ImportError as e:
+    print(f"Import error: {e}")
+    # Fallback for different execution contexts
+    try:
+        from .mygithubtriage_environment import MygithubtriageEnvironment, TASKS_LIST
+        from ..models import MygithubtriageAction, MygithubtriageObservation
+    except:
+        from server.mygithubtriage_environment import MygithubtriageEnvironment, TASKS_LIST
+        from models import MygithubtriageAction, MygithubtriageObservation
 
-
-# Create the app
-app = create_app(
-    MygithubtriageEnvironment,
-    MygithubtriageAction,
-    MygithubtriageObservation,
-    env_name="mygithubtriage",
-    max_concurrent_envs=1,
-)
+app = FastAPI(title="Mygithubtriage Environment")
 
 @app.get("/health")
 async def health():
-    """Health check endpoint for Docker and orchestrator."""
-    return JSONResponse(content={"status": "healthy"})
+    return {"status": "healthy"}
 
 @app.get("/tasks")
 async def get_tasks():
-    """Returns metadata for all available triage tasks."""
-    return JSONResponse(content=[t for t in TASKS_LIST])
+    return TASKS_LIST
+
+@app.get("/metadata")
+async def get_metadata():
+    return {
+        "name": "mygithubtriage",
+        "description": "A GitHub Issue Triage environment for evaluating AI agent performance.",
+        "version": "1.0.0"
+    }
+
+@app.get("/schema")
+async def get_schema():
+    return {
+        "action": MygithubtriageAction.model_json_schema(),
+        "observation": MygithubtriageObservation.model_json_schema(),
+        "state": {"type": "object"}
+    }
+
+@app.post("/reset")
+async def reset(request: Request):
+    try:
+        body = await request.json()
+    except:
+        body = {}
+    
+    _env = MygithubtriageEnvironment()
+    try:
+        sig = inspect.signature(_env.reset)
+        valid_kwargs = {k: v for k, v in body.items() if k in sig.parameters}
+        observation = _env.reset(**valid_kwargs)
+        obs_dict = serialize_observation(observation)
+        return {
+            "observation": obs_dict["observation"],
+            "reward": 0.5,
+            "done": False
+        }
+    finally:
+        _env.close()
+
+@app.post("/step")
+async def step(request: Request):
+    try:
+        body = await request.json()
+    except:
+        return JSONResponse(status_code=400, content={"error": "Invalid JSON"})
+
+    # Extract action - handle both wrapped {"action": {...}} and flat {...}
+    action_data = body.get("action", body) if isinstance(body, dict) else body
+    
+    try:
+        action = deserialize_action(action_data, MygithubtriageAction)
+    except Exception as e:
+        return JSONResponse(status_code=422, content={"error": f"Validation failed: {str(e)}"})
+
+    _env = MygithubtriageEnvironment()
+    try:
+        observation = _env.step(action)
+        obs_dict = serialize_observation(observation)
+        return {
+            "observation": obs_dict["observation"],
+            "reward": _env.current_score,
+            "done": action.submit_decision
+        }
+    finally:
+        _env.close()
 
 @app.get("/run-agent-stream")
 async def run_agent_stream(ids: Optional[str] = Query(None)):

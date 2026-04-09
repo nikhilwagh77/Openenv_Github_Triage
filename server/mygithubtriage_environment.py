@@ -3,6 +3,9 @@ from uuid import uuid4
 import random
 from typing import List, Optional
 
+def log(msg: str):
+    print(f"[ENV] {msg}")
+
 from openenv.core.env_server.interfaces import Environment
 from openenv.core.env_server.types import State
 
@@ -214,6 +217,9 @@ class MygithubtriageEnvironment(Environment):
         self.comments = []
 
         # Keep all emitted scores strictly within (0, 1) for validator compatibility.
+        # Initial score is 0.5 (neutral)
+        self.current_score = 0.5
+        self.step_count = 0
         return self._generate_observation(feedback="Environment reset. Ready for triage.", done=False, reward=0.5)
 
     def _generate_observation(self, feedback: str, done: bool, reward: float) -> MygithubtriageObservation:
@@ -297,49 +303,58 @@ class MygithubtriageEnvironment(Environment):
 
     def _grade_task(self) -> float:
         """
-        Grades the current state against the task's expected state.
+        Grades the current state of the environment against the expected task outcome.
         Returns a score strictly between 0.1 and 0.9 (exclusive).
         """
         task = self._current_task
-        total_components = 0
-        earned_components = 0
+        if not task:
+            return 0.5
 
-        # 1. Labels
-        if task["expected_labels"]:
-            total_components += len(task["expected_labels"])
-            for label in task["expected_labels"]:
-                if label in self.current_labels:
-                    earned_components += 1
-
-        # 2. Assignees
-        if task["expected_assignees"]:
-            total_components += len(task["expected_assignees"])
-            for assignee in task["expected_assignees"]:
-                if assignee in self.current_assignees:
-                    earned_components += 1
-
-        # 3. Comment
-        if task["needs_comment"]:
-            total_components += 1
-            if len(self.comments) > 0:
-                earned_components += 1
-
-        # 4. Calculation
-        if total_components > 0:
-            raw_score = earned_components / total_components
-        else:
-            raw_score = 1.0
-
-        # Penalty for extra incorrect labels/assignees
-        extra_labels = [l for l in self.current_labels if l not in task["expected_labels"]]
-        extra_assignees = [a for a in self.current_assignees if a not in task["expected_assignees"]]
-        penalty = 0.05 * (len(extra_labels) + len(extra_assignees))
+        correct_items = 0
+        expected_labels = task.get("expected_labels", [])
+        expected_assignees = task.get("expected_assignees", [])
+        needs_comment = task.get("needs_comment", False)
         
-        final_score = max(0.0, raw_score - penalty)
+        total_items = len(expected_labels) + len(expected_assignees) + (1 if needs_comment else 0)
+        
+        if total_items == 0:
+            return 0.9 # Should not happen with current tasks
 
+        # 1. Check labels
+        for label in expected_labels:
+            if label in self.current_labels:
+                correct_items += 1
+                
+        # Penalty for extra incorrect labels
+        penalty = 0.0
+        for label in self.current_labels:
+            if label not in expected_labels:
+                penalty += 0.1
+
+        # 2. Check assignees
+        for assignee in expected_assignees:
+            if assignee in self.current_assignees:
+                correct_items += 1
+                
+        # Penalty for extra incorrect assignees
+        for assignee in self.current_assignees:
+            if assignee not in expected_assignees:
+                penalty += 0.1
+
+        # 3. Check comment
+        if needs_comment:
+            if len(self.comments) > 0:
+                correct_items += 1
+
+        # Calculate raw score
+        raw_score = correct_items / total_items
+        final_score = max(0.0, raw_score - penalty)
+        
         # Scale to strictly (0, 1) range [0.1, 0.9] for validator safety.
         # A perfect score (1.0) maps to 0.9.
-        return round(0.1 + (final_score * 0.8), 3)
+        self.current_score = round(0.1 + (final_score * 0.8), 3)
+        log(f"Task graded. Final score: {self.current_score}")
+        return self.current_score
 
     @property
     def state(self) -> State:

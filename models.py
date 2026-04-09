@@ -39,5 +39,3 @@ class MygithubtriageObservation(Observation):
     
     task_difficulty: str = Field(default="", description="The difficulty of the current task: 'easy', 'medium', or 'hard'")
     feedback: str = Field(default="", description="Immediate feedback on the action you just took.")
-    done: bool = Field(default=False, description="Whether the episode is finished.")
-    reward: float = Field(default=0.0, description="The reward/score for the current state.")
