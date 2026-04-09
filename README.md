@@ -24,10 +24,11 @@ The environment simulates a repository with 15 distinct, real-world issue scenar
     -   `apply_labels`: Categorize the issue (e.g., `bug`, `security`).
     -   `assign_to`: Direct the issue to the right team (e.g., `frontend-team`).
     -   `leave_comment`: Request more details or explain reasoning.
-3.  **Reward**: The agent is graded on accuracy. 
-    -   `+0.1` for correct labels/assignments.
-    -   `-0.05` for incorrect or extra labels.
-    -   Target Score: `0.8` or higher for a "Success" state.
+    -   `leave_comment`: Request more details or explain reasoning.
+3.  **Reward**: The agent is graded on accuracy using a rule-based grader.
+    -   **Range**: Strictly `0.1` (minimum) to `0.9` (maximum).
+    -   **Logic**: Dense rewards based on correct labels and assignments.
+    -   **Success State**: A score of `0.8` or higher is required for "Success".
 
 ## 💻 Local Setup
 

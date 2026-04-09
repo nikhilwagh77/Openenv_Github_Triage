@@ -8,25 +8,150 @@ port: 7860
 tasks:
   - id: "1"
     name: "Broken Link Triage"
-    description: "Easy triage: Fix a simple broken footer link."
+    description: "Fix broken footer link"
     grader:
       type: rule_based
+      evaluate_on: step
       score_range:
         min_exclusive: 0.0
         max_exclusive: 1.0
+
   - id: "2"
-    name: "Security Vulnerability Triage"
-    description: "Medium triage: Handle a security dependency vulnerability."
+    name: "Security Vulnerability"
+    description: "Handle dependency vulnerability"
     grader:
       type: rule_based
+      evaluate_on: step
       score_range:
         min_exclusive: 0.0
         max_exclusive: 1.0
+
   - id: "3"
-    name: "Site Crash Triage"
-    description: "Hard triage: Investigate a critical site crash on login."
+    name: "Typo in Command"
+    description: "Fix typo in installation command"
     grader:
       type: rule_based
+      evaluate_on: step
+      score_range:
+        min_exclusive: 0.0
+        max_exclusive: 1.0
+
+  - id: "4"
+    name: "Search Bar Enhancement"
+    description: "Add search bar to navigation header"
+    grader:
+      type: rule_based
+      evaluate_on: step
+      score_range:
+        min_exclusive: 0.0
+        max_exclusive: 1.0
+
+  - id: "5"
+    name: "Login Crash Bug"
+    description: "Investigate and fix site crash on login attempt"
+    grader:
+      type: rule_based
+      evaluate_on: step
+      score_range:
+        min_exclusive: 0.0
+        max_exclusive: 1.0
+
+  - id: "6"
+    name: "Logo Update"
+    description: "Update logo to new version"
+    grader:
+      type: rule_based
+      evaluate_on: step
+      score_range:
+        min_exclusive: 0.0
+        max_exclusive: 1.0
+
+  - id: "7"
+    name: "API Performance"
+    description: "Address slow API response on dashboard"
+    grader:
+      type: rule_based
+      evaluate_on: step
+      score_range:
+        min_exclusive: 0.0
+        max_exclusive: 1.0
+
+  - id: "8"
+    name: "Security: SQL Injection"
+    description: "Fix SQL injection vulnerability in user profile bio field"
+    grader:
+      type: rule_based
+      evaluate_on: step
+      score_range:
+        min_exclusive: 0.0
+        max_exclusive: 1.0
+
+  - id: "9"
+    name: "Default Theme Update"
+    description: "Change default theme to dark mode"
+    grader:
+      type: rule_based
+      evaluate_on: step
+      score_range:
+        min_exclusive: 0.0
+        max_exclusive: 1.0
+
+  - id: "10"
+    name: "Cross-browser CSS Fix"
+    description: "Fix broken CSS layout on Safari mobile"
+    grader:
+      type: rule_based
+      evaluate_on: step
+      score_range:
+        min_exclusive: 0.0
+        max_exclusive: 1.0
+
+  - id: "11"
+    name: "API Documentation"
+    description: "Add new API documentation section"
+    grader:
+      type: rule_based
+      evaluate_on: step
+      score_range:
+        min_exclusive: 0.0
+        max_exclusive: 1.0
+
+  - id: "12"
+    name: "Concurrent Login Bug"
+    description: "Fix issue with concurrent login sessions"
+    grader:
+      type: rule_based
+      evaluate_on: step
+      score_range:
+        min_exclusive: 0.0
+        max_exclusive: 1.0
+
+  - id: "13"
+    name: "Vague Bug Report"
+    description: "Handle vague bug report requiring feedback"
+    grader:
+      type: rule_based
+      evaluate_on: step
+      score_range:
+        min_exclusive: 0.0
+        max_exclusive: 1.0
+
+  - id: "14"
+    name: "Image Optimization"
+    description: "Optimize image upload performance"
+    grader:
+      type: rule_based
+      evaluate_on: step
+      score_range:
+        min_exclusive: 0.0
+        max_exclusive: 1.0
+
+  - id: "15"
+    name: "Help Link Extension"
+    description: "Add support help link to navigation"
+    grader:
+      type: rule_based
+      evaluate_on: step
       score_range:
         min_exclusive: 0.0
         max_exclusive: 1.0

@@ -217,8 +217,8 @@ async def root():
                     <p>An interactive RL environment for GitHub issue management.</p>
                     <ul>
                         <li>Action Space: Labels, Assignees, Comments</li>
-                        <li>Reward: +0.1 per correct action, -0.05 per error</li>
-                        <li>Target: Perfect triage state (Score 1.0)</li>
+                        <li>Range: 0.1 (Min) to 0.9 (Max) strictly</li>
+                        <li>Success Threshold: Score ≥ 0.80</li>
                     </ul>
                 </div>
 
