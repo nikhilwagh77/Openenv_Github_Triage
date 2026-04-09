@@ -12,11 +12,17 @@ except ImportError:
     from client import MygithubtriageEnv
 
 # Configuration
-API_BASE_URL = os.getenv("API_BASE_URL") or "https://router.huggingface.co/v1"
-MODEL_NAME = os.getenv("MODEL_NAME") or os.getenv("MODEL") or "Qwen/Qwen2.5-72B-Instruct"
-# Support injected API_KEY (validator), OPENAI_API_KEY, or Hugging Face tokens
-API_KEY = os.getenv("API_KEY") or os.getenv("HF_TOKEN") or os.getenv("OPENAI_API_KEY") or ""
-PORT = int(os.getenv("PORT") or 7860)
+# MANDATORY: The validator expects these variables to be set in the environment.
+# We use os.environ directly to ensure we fail-fast if they are missing, as requested.
+API_BASE_URL = os.environ["API_BASE_URL"]
+# Support HF_TOKEN as a fallback for API_KEY if needed, but prioritize API_KEY
+API_KEY = os.environ.get("API_KEY") or os.environ.get("HF_TOKEN") or os.environ.get("OPENAI_API_KEY") 
+if not API_KEY:
+    raise KeyError("Neither API_KEY nor HF_TOKEN found in environment")
+
+MODEL_NAME = os.environ.get("MODEL_NAME") or os.environ.get("MODEL") or "Qwen/Qwen2.5-72B-Instruct"
+PORT = int(os.environ.get("PORT") or 7860)
+
 
 TASK_NAME = os.getenv("MY_ENV_V4_TASK") or "github_triage"
 BENCHMARK = os.getenv("MY_ENV_V4_BENCHMARK") or "mygithubtriage_benchmark"
@@ -176,7 +182,12 @@ async def run_full_evaluation(api_key: Optional[str] = None, base_url: Optional[
         output_logs.append(msg)
         print(msg, flush=True)
 
+    # Diagnostic log to verify the active proxy URL (redacted for security)
+    domain = actual_base_url.split("//")[-1].split("/")[0] if "//" in actual_base_url else actual_base_url
+    print(f"[DEBUG] Initializing OpenAI client with BASE_URL domain: {domain}", flush=True)
+
     log_start(TASK_NAME, BENCHMARK, model)
+
 
     try:
         total_steps = 0
@@ -304,7 +315,8 @@ async def run_full_evaluation_stream(
             })
             
         avg_score = total_score / len(targets) if targets else 0
-        yield format_event("log", f"[END] success={str(avg_score >= SUCCESS_SCORE_THRESHOLD).lower()} score={avg_score:.2f}")
+        yield format_event("log", f"[END] success={str(avg_score >= SUCCESS_SCORE_THRESHOLD).lower()} score={avg_score:.3f}")
+
 
         yield format_event("done", {
             "average_score": avg_score,
