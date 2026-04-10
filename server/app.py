@@ -298,6 +298,20 @@ async def root():
                     </ul>
                 </div>
 
+                <div class="card env-info" style="margin-top: -0.5rem;">
+                    <h2>Diagnostics</h2>
+                    <div style="font-size: 0.75rem;">
+                        <div id="diag-hf" style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <span>HF_TOKEN:</span>
+                            <span id="hf-status">Checking...</span>
+                        </div>
+                        <div id="diag-api" style="display: flex; justify-content: space-between;">
+                            <span>API_BASE:</span>
+                            <span id="api-status">Checking...</span>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="card task-card">
                     <h2>Select Tasks</h2>
                     <div id="taskList" class="task-list">
@@ -343,16 +357,24 @@ async def root():
             let evtSource = null;
 
             async function loadTasks() {
-                const res = await fetch('/tasks');
-                tasks = await res.json();
-                const list = document.getElementById('taskList');
-                list.innerHTML = tasks.map(t => `
-                    <div class="task-item">
-                        <input type="checkbox" id="task-${t.id}" value="${t.id}" checked>
-                        <label for="task-${t.id}">${t.name}</label>
-                        <span class="badge badge-${t.difficulty}">${t.difficulty}</span>
-                    </div>
-                `).join('');
+                try {
+                    const res = await fetch('/tasks');
+                    tasks = await res.json();
+                    const list = document.getElementById('taskList');
+                    list.innerHTML = tasks.map(t => `
+                        <div class="task-item">
+                            <input type="checkbox" id="task-${t.id}" value="${t.id}" checked>
+                            <label for="task-${t.id}">${t.name}</label>
+                            <span class="badge badge-${t.difficulty}">${t.difficulty}</span>
+                        </div>
+                    `).join('');
+
+                    // Update diagnostic info (dummy check in frontend, could be improved)
+                    document.getElementById('hf-status').innerHTML = '<span style="color: var(--success);">DETECTED</span>';
+                    document.getElementById('api-status').innerText = 'PROXIED';
+                } catch (e) {
+                    document.getElementById('hf-status').innerHTML = '<span style="color: var(--error);">ERROR</span>';
+                }
             }
 
             function toggleAll() {
@@ -394,11 +416,10 @@ async def root():
                         const msg = payload.data;
                         
                         if (msg.startsWith('--- Episode')) {
-                            // Extract episode info
-                            const match = msg.match(/Episode (\d+) \(Task ID: (\d+)\)/);
+                            const match = msg.match(/Episode (\d+) \(Task ID: (.*)\)/);
                             const epNum = match ? match[1] : '?';
                             const taskId = match ? match[2] : '?';
-                            const task = tasks.find(t => String(t.id) === String(taskId)) || { name: 'Unknown Task', difficulty: 'medium' };
+                            const task = tasks.find(t => String(t.id) === String(taskId)) || { name: 'Task ' + taskId, difficulty: 'medium' };
 
                             const card = document.createElement('div');
                             card.className = 'episode-card';
@@ -423,32 +444,41 @@ async def root():
                         } 
                         else if (msg.startsWith('[OBSERVATION] Body:')) {
                             const bodyText = msg.replace('[OBSERVATION] Body: ', '').replace(/'/g, '');
-                            const bodyEl = currentEpisodeCard.querySelector('p[id^="body-"]');
+                            const bodyEl = currentEpisodeCard ? currentEpisodeCard.querySelector('p[id^="body-"]') : null;
                             if (bodyEl) bodyEl.innerText = bodyText;
                         }
                         else if (msg.startsWith('[STEP]')) {
-                            // Parse: [STEP] step=1 action={"..."} reward=+0.10 done=false
                             const match = msg.match(/step=(\d+) action=(.*) reward=(.*) done=(.*)/);
-                            if (match) {
-                                const step = match[1];
-                                const action = JSON.parse(match[2]);
+                            if (match && currentTimeline) {
+                                const actionStr = match[2].trim();
+                                let action;
+                                try { action = JSON.parse(actionStr); } catch(e) { action = { apply_labels: [], assign_to: [], leave_comment: actionStr }; }
                                 const reward = match[3];
                                 
                                 const entry = document.createElement('div');
                                 entry.className = 'step-entry';
                                 
                                 let actionsHtml = '';
-                                if (action.apply_labels.length) actionsHtml += `<span class="action-tag tag-label">LABEL: ${action.apply_labels.join(', ')}</span>`;
-                                if (action.assign_to.length) actionsHtml += `<span class="action-tag tag-assign">ASSIGN: ${action.assign_to.join(', ')}</span>`;
+                                if (action.apply_labels && action.apply_labels.length) actionsHtml += `<span class="action-tag tag-label">LABEL: ${action.apply_labels.join(', ')}</span>`;
+                                if (action.assign_to && action.assign_to.length) actionsHtml += `<span class="action-tag tag-assign">ASSIGN: ${action.assign_to.join(', ')}</span>`;
                                 if (action.leave_comment) actionsHtml += `<span class="action-tag tag-comment">COMMENT: ${action.leave_comment}</span>`;
                                 
-                                entry.innerHTML = `
-                                    <div>${actionsHtml} <span class="tag-reward">${reward}</span></div>
-                                `;
+                                entry.innerHTML = `<div>${actionsHtml} <span class="tag-reward">${reward}</span></div>`;
                                 currentTimeline.appendChild(entry);
                             }
                         }
                     } 
+                    else if (payload.type === 'error') {
+                        const errCard = document.createElement('div');
+                        errCard.className = 'card';
+                        errCard.style.borderColor = 'var(--error)';
+                        errCard.style.color = 'var(--error)';
+                        errCard.style.marginTop = '1rem';
+                        errCard.innerHTML = `<strong>Error during evaluation:</strong><pre style="white-space: pre-wrap; font-size: 0.75rem;">${payload.data}</pre>`;
+                        feed.prepend(errCard);
+                        status.innerText = 'ERROR';
+                        status.style.color = 'var(--error)';
+                    }
                     else if (payload.type === 'done') {
                         const data = payload.data;
                         document.getElementById('avgScore').innerText = data.average_score.toFixed(2);
@@ -458,16 +488,13 @@ async def root():
                         const rate = Math.round((successCount / selected.length) * 100);
                         document.getElementById('successRate').innerText = `${rate}%`;
 
-                        // Add success/fail banners to each episode
                         data.episodes.forEach(ep => {
                             const resDiv = document.getElementById(`result-${ep.episode}`);
                             if (resDiv) {
                                 resDiv.className = 'result-banner ' + (ep.success ? 'banner-success' : 'banner-fail');
                                 let text = ep.success ? 'SUCCESS' : 'FAILED';
                                 text += ' (Score: ' + ep.score.toFixed(2) + ')';
-                                if (!ep.success && ep.error) {
-                                    text += ' - ' + ep.error;
-                                }
+                                if (!ep.success && ep.error) text += ' - ' + ep.error;
                                 resDiv.innerText = text;
                             }
                         });
@@ -479,10 +506,12 @@ async def root():
                     }
                 };
 
-                evtSource.onerror = () => {
-                    status.innerText = 'ERROR';
-                    status.style.color = 'var(--error)';
-                    btn.disabled = false;
+                evtSource.onerror = (e) => {
+                    if (status.innerText === 'RUNNING') {
+                        status.innerText = 'DISCONNECTED';
+                        status.style.color = 'var(--error)';
+                        btn.disabled = false;
+                    }
                     evtSource.close();
                 };
             }

@@ -187,21 +187,25 @@ async def run_full_evaluation(hf_token: Optional[str] = None, base_url: Optional
     env = MygithubtriageEnv(base_url=f"http://127.0.0.1:{PORT}")
     
     try:
-        # For the hackathon evaluation, it often passes a specific task via env var
-        # or expects us to run through our tasks.
-        # If we are in CLI mode (__main__), we run episodes.
+        total_score = 0.0
+        num_episodes = 15
+        episodes_results = []
         
-        # We'll run 1 episode for now to be safe with the START/END constraint,
-        # OR run 15 but ensure they all follow the format if the validator allows multiple episodes.
-        # Given the "exactly three line types" rule, it's safer to ensure one execution = one sequence.
-        # But wait, if they want to evaluate 15 tasks, they might run us 15 times?
-        # Let's check TASK_NAME.
-        
-        success, steps, score, rewards, error_msg = await run_episode(client, env, task_id="1")
-        
+        for ep in range(1, num_episodes + 1):
+            # run_episode already handles START/STEP/END lines
+            success, steps, score, rewards, error_msg = await run_episode(client, env, task_id=str(ep))
+            total_score += score
+            episodes_results.append({
+                "episode": ep,
+                "score": score,
+                "success": success
+            })
+            
+        avg_score = total_score / num_episodes
         return {
-            "average_score": score,
-            "success": success
+            "average_score": avg_score,
+            "success": avg_score >= SUCCESS_SCORE_THRESHOLD,
+            "episodes": episodes_results
         }
     finally:
         await env.close()
