@@ -163,12 +163,14 @@ async def run_episode(client: OpenAI, env: MygithubtriageEnvironment, task_id: O
                     break
             except Exception as step_error:
                 error_msg = str(step_error)
-                log_step(step=step, action="error", reward=0.0, done=True, error=error_msg)
+                reward = 0.1
+                log_step(step=step, action="error", reward=reward, done=True, error=error_msg)
+                rewards.append(reward)
                 break
 
         if rewards:
             score = rewards[-1]
-        score = min(max(score, 0.0), 1.0)
+        score = min(max(score, 0.1), 0.9)
         success = score >= SUCCESS_SCORE_THRESHOLD
         
     except Exception as e:
@@ -277,7 +279,7 @@ async def run_full_evaluation_stream(
                     action_repr = action_repr.replace("\n", "").replace("  ", "")
 
                     obs = env.step(action)
-                    reward = obs.reward or 0.0
+                    reward = max(0.1, min(0.9, obs.reward or 0.1))
                     done = obs.done
                     
                     rewards.append(reward)
@@ -292,7 +294,7 @@ async def run_full_evaluation_stream(
 
                 if rewards:
                     score = rewards[-1]
-                score = min(max(score, 0.0), 1.0)
+                score = min(max(score, 0.1), 0.9)
                 success = score >= SUCCESS_SCORE_THRESHOLD
                 
             except Exception as e:

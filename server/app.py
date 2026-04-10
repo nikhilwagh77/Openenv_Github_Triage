@@ -103,9 +103,11 @@ async def step(request: Request):
     try:
         observation = _env.step(action)
         obs_dict = serialize_observation(observation)
+        # Ensure reward is strictly within (0, 1) range [0.1, 0.9]
+        safe_reward = max(0.1, min(0.9, float(_env.current_score or 0.1)))
         return {
             "observation": obs_dict["observation"],
-            "reward": _env.current_score,
+            "reward": round(safe_reward, 3),
             "done": action.submit_decision
         }
     finally:
