@@ -8,9 +8,15 @@ from openai import OpenAI
 try:
     from mygithubtriage.models import MygithubtriageAction
     from mygithubtriage.client import MygithubtriageEnv
+    from mygithubtriage.server.mygithubtriage_environment import MygithubtriageEnvironment
 except ImportError:
     from models import MygithubtriageAction
     from client import MygithubtriageEnv
+    try:
+        from server.mygithubtriage_environment import MygithubtriageEnvironment
+    except ImportError:
+        # For HF where server might be a package
+        from .server.mygithubtriage_environment import MygithubtriageEnvironment
 
 # Read environment variables with defaults where required
 API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
@@ -103,7 +109,7 @@ def get_model_action(client: OpenAI, obs_dict: dict, history: List[str]) -> Mygi
         # Re-raise to let the caller handle reporting the error to the UI
         raise exc
 
-async def run_episode(client: OpenAI, env: MygithubtriageEnv, task_id: Optional[str] = None) -> tuple[bool, int, float, List[float], Optional[str]]:
+async def run_episode(client: OpenAI, env: MygithubtriageEnvironment, task_id: Optional[str] = None) -> tuple[bool, int, float, List[float], Optional[str]]:
     history: List[str] = []
     rewards: List[float] = []
     steps_taken = 0
@@ -115,12 +121,11 @@ async def run_episode(client: OpenAI, env: MygithubtriageEnv, task_id: Optional[
         # Emit START line at episode begin
         log_start(TASK_NAME, BENCHMARK, MODEL_NAME)
 
-        # Reset with specific task ID if provided
-        result = await env.reset(task_id=task_id)
-        obs = result.observation
+        # Use the local environment directly (no await needed for class methods)
+        obs = env.reset(task_id=task_id)
         
         for step in range(1, MAX_STEPS + 1):
-            if result.done:
+            if obs.done:
                 break
 
             # Convert Observation to dict to send to LLM
@@ -142,10 +147,9 @@ async def run_episode(client: OpenAI, env: MygithubtriageEnv, task_id: Optional[
                 # Keep action compact for the log_step
                 action_repr = action_repr.replace("\n", "").replace("  ", "")
 
-                result = await env.step(action)
-                obs = result.observation
-                reward = result.reward or 0.0
-                done = result.done
+                obs = env.step(action)
+                reward = obs.reward or 0.0
+                done = obs.done
                 
                 rewards.append(reward)
                 steps_taken = step
@@ -184,7 +188,8 @@ async def run_full_evaluation(hf_token: Optional[str] = None, base_url: Optional
     
     # Initialize OpenAI client
     client = OpenAI(base_url=actual_base_url, api_key=actual_hf_token)
-    env = MygithubtriageEnv(base_url=f"http://127.0.0.1:{PORT}")
+    # Initialize the local environment class directly (bypasses network issues)
+    env = MygithubtriageEnvironment()
     
     try:
         total_score = 0.0
@@ -227,10 +232,8 @@ async def run_full_evaluation_stream(
         actual_hf_token = api_key or HF_TOKEN
         actual_base_url = base_url or API_BASE_URL
         
-        # Critical: Ensure client uses the actual_base_url (proxy)
-        client = OpenAI(base_url=actual_base_url, api_key=actual_hf_token)
-
-        env = MygithubtriageEnv(base_url=f"http://127.0.0.1:{PORT}")
+        # Initialize the local environment class directly (bypasses network issues)
+        env = MygithubtriageEnvironment()
         
         yield format_event("log", f"[START] task={TASK_NAME} env={BENCHMARK} model={model}")
         
@@ -249,14 +252,13 @@ async def run_full_evaluation_stream(
             
             try:
                 # Reset with specific task ID
-                result = await env.reset(task_id=t_id)
-                obs = result.observation
+                obs = env.reset(task_id=t_id)
                 
                 yield format_event("log", f"[OBSERVATION] Title: '{obs.title}'")
                 yield format_event("log", f"[OBSERVATION] Body: '{obs.body}'")
 
                 for step in range(1, MAX_STEPS + 1):
-                    if result.done:
+                    if obs.done:
                         break
 
                     obs_dict = {
@@ -269,12 +271,12 @@ async def run_full_evaluation_stream(
                     yield format_event("log", f"Agent thinking... (Step {step})")
                     loop = asyncio.get_running_loop()
                     action = await loop.run_in_executor(None, get_model_action, client, obs_dict, history)
-                    action_repr = action.model_dump_json()
+                    action_repr = action.model_dump_json(exclude_none=True)
+                    action_repr = action_repr.replace("\n", "").replace("  ", "")
 
-                    result = await env.step(action)
-                    obs = result.observation
-                    reward = result.reward or 0.0
-                    done = result.done
+                    obs = env.step(action)
+                    reward = obs.reward or 0.0
+                    done = obs.done
                     
                     rewards.append(reward)
                     steps_taken = step
