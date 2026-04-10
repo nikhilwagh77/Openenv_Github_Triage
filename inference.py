@@ -232,6 +232,8 @@ async def run_full_evaluation_stream(
         actual_hf_token = api_key or HF_TOKEN
         actual_base_url = base_url or API_BASE_URL
         
+        # Initialize OpenAI client
+        client = OpenAI(base_url=actual_base_url, api_key=actual_hf_token)
         # Initialize the local environment class directly (bypasses network issues)
         env = MygithubtriageEnvironment()
         
